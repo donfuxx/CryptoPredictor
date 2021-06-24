@@ -30,18 +30,18 @@ warnings.filterwarnings("ignore")
 # Configuration
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
-N_INPUT = 16
+N_INPUT = 28
 TRAIN_SPLIT = N_INPUT * 1
-N_FEATURES = 1
+N_FEATURES = 6
 EPOCHS = 15
 PLOT_RANGE = N_INPUT * 2
 DROPOUT = 0.1
-BATCH_SIZE = 16
-UNITS = N_INPUT * BATCH_SIZE * 2
+BATCH_SIZE = 4
+UNITS = N_INPUT * BATCH_SIZE * 1
 
 # download data
 df = pd.read_csv(CSV_PATH, parse_dates=['Date'])
-df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
+# df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
 
 # Put the month column in the index.
 df = df.set_index("Date")
@@ -82,7 +82,7 @@ def compile_model() -> Model:
     model.add(Dropout(DROPOUT))
     # model.add(Dense(N_INPUT))
     # model.add(Dense(UNITS))
-    model.add(Dense(1))
+    model.add(Dense(N_FEATURES))
 
     # Build optimizer
     # model.compile(optimizer='adam', loss='mse')
@@ -101,6 +101,7 @@ def plot_learning_rates(lr_model: Model):
     plt.semilogx(lr_history.history["lr"], lr_history.history["loss"])
     plt.axis([1e-5, 1e-0, 0, 0.05])
     plt.show()
+
 
 # Compile and train the model
 model = compile_model()
@@ -124,7 +125,7 @@ for i in range(N_INPUT):
 # The code is also creating a dataframe out of the prediction list, which is concatenated with the original dataframe.
 # I did this for plotting. There are many other (better) ways to do this.
 df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
-                          index=df[-N_INPUT:].index, columns=['Prediction'])
+                          index=df[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_test = pd.concat([df, df_predict], axis=1)
 df_test = df_test[len(df_test) - PLOT_RANGE:]
 
@@ -143,7 +144,7 @@ train = df
 scaler.fit(train)
 train = scaler.transform(train)
 train = train[~pd.isnull(train)]
-train = train.reshape(-1, 1)
+train = train.reshape(-1, N_FEATURES)
 generator = TimeseriesGenerator(train, train, length=N_INPUT, batch_size=BATCH_SIZE)
 model.fit_generator(generator, epochs=EPOCHS)
 
@@ -159,7 +160,7 @@ future_dates = pd.DataFrame(index=add_dates[1:], columns=df.columns)
 
 # Reverse scale the future prediction
 df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
-                          index=future_dates[-N_INPUT:].index, columns=['Prediction'])
+                          index=future_dates[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_proj = pd.concat([df, df_predict], axis=1)
 df_proj = df_proj[len(df_proj) - PLOT_RANGE:]
 
