@@ -21,6 +21,7 @@ from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.callbacks import LearningRateScheduler
 from tensorflow.keras.losses import Huber
 from tensorflow.keras import Model
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard
 import warnings
 from matplotlib import rcParams
 
@@ -30,14 +31,13 @@ warnings.filterwarnings("ignore")
 
 tensorflow.keras.backend.clear_session()
 
-
 # Configuration
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
 N_INPUT = 8
 TRAIN_SPLIT = N_INPUT * 1
 N_FEATURES = 1
-EPOCHS = 15
+EPOCHS = 500
 PLOT_RANGE = N_INPUT * 2
 DROPOUT = 0.1
 BATCH_SIZE = 128
@@ -80,7 +80,8 @@ def compile_model() -> Model:
     #                  strides=1, padding="causal",
     #                  activation="relu",
     #                  input_shape=(N_INPUT, N_FEATURES)))
-    model.add(Bidirectional(LSTM(N_INPUT, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
+    model.add(
+        Bidirectional(LSTM(N_INPUT, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
     model.add(Dropout(DROPOUT))
     model.add(Bidirectional(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
     # model.add(Dense(UNITS))
@@ -94,28 +95,38 @@ def compile_model() -> Model:
 
     # Build optimizer
     # model.compile(optimizer='adam', loss='mse')
-    optimizer = SGD(lr=1e-2, momentum=0.9)
+    optimizer = SGD(lr=1e-1, momentum=0.9)
     model.compile(loss=Huber(),
                   optimizer=optimizer,
                   metrics=["mae"])
     return model
 
 
+def create_model_callbacks() -> []:
+    es = EarlyStopping(monitor='loss', min_delta=1e-10, patience=20, verbose=1)
+    rlr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=10, verbose=1)
+    mcp = ModelCheckpoint(filepath='weights.h5', monitor='loss', verbose=1, save_best_only=True,
+                          save_weights_only=True)
+
+    tb = TensorBoard('logs')
+    return [es, rlr, mcp, tb]
+
+
 def plot_learning_rates(lr_model: Model):
     lr_schedule = LearningRateScheduler(
-        lambda epoch: 1e-5 * 10 ** (epoch / 20))
+        lambda epoch: 1e-6 * 10 ** (epoch / 20))
     lr_history = lr_model.fit_generator(generator, epochs=100, callbacks=[lr_schedule])
 
     plt.semilogx(lr_history.history["lr"], lr_history.history["loss"])
-    plt.axis([1e-5, 1e-0, 0, 0.05])
+    plt.axis([1e-6, 1e-1, 0, 0.05])
     plt.show()
 
 
 # Compile and train the model
 model = compile_model()
 generator = TimeseriesGenerator(train, train, length=N_INPUT, batch_size=BATCH_SIZE)
-history = model.fit_generator(generator, epochs=EPOCHS)
 # plot_learning_rates(model)
+history = model.fit_generator(generator, epochs=EPOCHS, callbacks=create_model_callbacks())
 
 # I got the technique below from Caner Dabakoglu here on Medium. In it we are doing a few things:
 #
@@ -134,7 +145,7 @@ for i in range(N_INPUT):
 # I did this for plotting. There are many other (better) ways to do this.
 df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
                           index=df[-N_INPUT:].index, columns=['Prediction'])
-                          # index=df[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
+# index=df[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_test = pd.concat([df, df_predict], axis=1)
 df_test = df_test[len(df_test) - PLOT_RANGE:]
 
@@ -155,7 +166,7 @@ train = scaler.transform(train)
 train = train[~pd.isnull(train)]
 train = train.reshape(-1, N_FEATURES)
 generator = TimeseriesGenerator(train, train, length=N_INPUT, batch_size=BATCH_SIZE)
-model.fit_generator(generator, epochs=EPOCHS)
+model.fit_generator(generator, epochs=EPOCHS, callbacks=create_model_callbacks())
 
 pred_list = []
 batch = train[-N_INPUT:].reshape((1, N_INPUT, N_FEATURES))
@@ -170,7 +181,7 @@ future_dates = pd.DataFrame(index=add_dates[1:], columns=df.columns)
 # Reverse scale the future prediction
 df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
                           index=future_dates[-N_INPUT:].index, columns=['Prediction'])
-                          # index=future_dates[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
+# index=future_dates[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_proj = pd.concat([df, df_predict], axis=1)
 df_proj = df_proj[len(df_proj) - PLOT_RANGE:]
 
