@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 # %matplotlib inline
+import tensorflow
 from statsmodels.tools.eval_measures import rmse
 from sklearn.preprocessing import MinMaxScaler
 from pandas.tseries.offsets import DateOffset
@@ -27,21 +28,25 @@ rcParams.update({'figure.autolayout': True})
 
 warnings.filterwarnings("ignore")
 
+tensorflow.keras.backend.clear_session()
+
+
 # Configuration
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
-N_INPUT = 28
+N_INPUT = 8
 TRAIN_SPLIT = N_INPUT * 1
-N_FEATURES = 6
+N_FEATURES = 1
 EPOCHS = 15
 PLOT_RANGE = N_INPUT * 2
 DROPOUT = 0.1
-BATCH_SIZE = 4
-UNITS = N_INPUT * BATCH_SIZE * 1
+BATCH_SIZE = 128
+# UNITS = N_INPUT * BATCH_SIZE * 1
+UNITS = N_INPUT * 8
 
 # download data
 df = pd.read_csv(CSV_PATH, parse_dates=['Date'])
-# df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
+df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
 
 # Put the month column in the index.
 df = df.set_index("Date")
@@ -75,14 +80,17 @@ def compile_model() -> Model:
     #                  strides=1, padding="causal",
     #                  activation="relu",
     #                  input_shape=(N_INPUT, N_FEATURES)))
-    # model.add(Bidirectional(LSTM(N_INPUT, activation='relu', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
-    # model.add(Bidirectional(LSTM(UNITS, activation='relu', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
+    model.add(Bidirectional(LSTM(N_INPUT, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
+    model.add(Dropout(DROPOUT))
+    model.add(Bidirectional(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
     # model.add(Dense(UNITS))
-    model.add(Bidirectional(LSTM(UNITS, activation='relu', input_shape=(N_INPUT, N_FEATURES))))
+    # model.add(Bidirectional(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES))))
+    model.add(Dropout(DROPOUT))
+    model.add(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES)))
     model.add(Dropout(DROPOUT))
     # model.add(Dense(N_INPUT))
     # model.add(Dense(UNITS))
-    model.add(Dense(N_FEATURES))
+    model.add(Dense(N_FEATURES, activation='linear'))
 
     # Build optimizer
     # model.compile(optimizer='adam', loss='mse')
@@ -125,7 +133,8 @@ for i in range(N_INPUT):
 # The code is also creating a dataframe out of the prediction list, which is concatenated with the original dataframe.
 # I did this for plotting. There are many other (better) ways to do this.
 df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
-                          index=df[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
+                          index=df[-N_INPUT:].index, columns=['Prediction'])
+                          # index=df[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_test = pd.concat([df, df_predict], axis=1)
 df_test = df_test[len(df_test) - PLOT_RANGE:]
 
@@ -160,7 +169,8 @@ future_dates = pd.DataFrame(index=add_dates[1:], columns=df.columns)
 
 # Reverse scale the future prediction
 df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
-                          index=future_dates[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
+                          index=future_dates[-N_INPUT:].index, columns=['Prediction'])
+                          # index=future_dates[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_proj = pd.concat([df, df_predict], axis=1)
 df_proj = df_proj[len(df_proj) - PLOT_RANGE:]
 
