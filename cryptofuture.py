@@ -16,6 +16,7 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import LSTM
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Bidirectional
+from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import Conv1D
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.callbacks import LearningRateScheduler
@@ -38,11 +39,11 @@ N_INPUT = 8
 TRAIN_SPLIT = N_INPUT * 1
 N_FEATURES = 1
 EPOCHS = 500
-PLOT_RANGE = N_INPUT * 2
+PLOT_RANGE = N_INPUT * 3
 DROPOUT = 0.1
 BATCH_SIZE = 128
-# UNITS = N_INPUT * BATCH_SIZE * 1
-UNITS = N_INPUT * 8
+UNITS = N_INPUT * BATCH_SIZE * 1
+# UNITS = N_INPUT * 1
 
 # download data
 df = pd.read_csv(CSV_PATH, parse_dates=['Date'])
@@ -80,22 +81,31 @@ def compile_model() -> Model:
     #                  strides=1, padding="causal",
     #                  activation="relu",
     #                  input_shape=(N_INPUT, N_FEATURES)))
-    model.add(
-        Bidirectional(LSTM(N_INPUT, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
-    model.add(Dropout(DROPOUT))
-    model.add(Bidirectional(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
-    # model.add(Dense(UNITS))
-    # model.add(Bidirectional(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES))))
-    model.add(Dropout(DROPOUT))
+    # model.add(
+    #     Bidirectional(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
+    # model.add(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True))
     model.add(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES)))
-    model.add(Dropout(DROPOUT))
+    # model.add(Dropout(DROPOUT))
+    # model.add(Bidirectional(LSTM(UNITS, activation='linear', return_sequences=True)))
+    # model.add(Dense(UNITS))
+    # model.add(Dropout(DROPOUT))
+    # model.add(Bidirectional(LSTM(UNITS, activation='linear', return_sequences=True)))
+    # model.add(Dropout(DROPOUT))
+    # model.add(Bidirectional(LSTM(UNITS, activation='linear', return_sequences=True)))
+    # model.add(Dropout(DROPOUT))
+    # model.add(Bidirectional(LSTM(UNITS, activation='linear', return_sequences=True)))
+    # model.add(Dropout(DROPOUT))
+    # model.add(LSTM(UNITS, activation='linear'))
+    # model.add(Dropout(DROPOUT))
     # model.add(Dense(N_INPUT))
     # model.add(Dense(UNITS))
+    # model.add(Lambda(lambda x: np.asarray(x).reshape(1024, 1)))
     model.add(Dense(N_FEATURES, activation='linear'))
+    # model.add(Dense(1, activation='linear'))
 
     # Build optimizer
     # model.compile(optimizer='adam', loss='mse')
-    optimizer = SGD(lr=1e-1, momentum=0.9)
+    optimizer = SGD(lr=1e-2, momentum=0.9)
     model.compile(loss=Huber(),
                   optimizer=optimizer,
                   metrics=["mae"])
@@ -103,8 +113,8 @@ def compile_model() -> Model:
 
 
 def create_model_callbacks() -> []:
-    es = EarlyStopping(monitor='loss', min_delta=1e-10, patience=20, verbose=1)
-    rlr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=10, verbose=1)
+    es = EarlyStopping(monitor='loss', min_delta=1e-10, patience=30, verbose=1)
+    rlr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=20, verbose=1)
     mcp = ModelCheckpoint(filepath='weights.h5', monitor='loss', verbose=1, save_best_only=True,
                           save_weights_only=True)
 
@@ -126,7 +136,8 @@ def plot_learning_rates(lr_model: Model):
 model = compile_model()
 generator = TimeseriesGenerator(train, train, length=N_INPUT, batch_size=BATCH_SIZE)
 # plot_learning_rates(model)
-history = model.fit_generator(generator, epochs=EPOCHS, callbacks=create_model_callbacks())
+history = model.fit_generator(generator, epochs=EPOCHS, callbacks=create_model_callbacks(), shuffle=False,
+                              use_multiprocessing=True)
 
 # I got the technique below from Caner Dabakoglu here on Medium. In it we are doing a few things:
 #
@@ -135,7 +146,7 @@ history = model.fit_generator(generator, epochs=EPOCHS, callbacks=create_model_c
 #     save the prediction to our list
 #     add the prediction to the end of the batch to be used in the next prediction
 pred_list = []
-batch = train[-PLOT_RANGE:-N_INPUT].reshape((1, N_INPUT, N_FEATURES))
+batch = train[-N_INPUT*2:-N_INPUT].reshape((1, N_INPUT, N_FEATURES))
 for i in range(N_INPUT):
     pred_list.append(model.predict(batch)[0])
     batch = np.append(batch[:, 1:, :], [[pred_list[i]]], axis=1)
@@ -181,7 +192,8 @@ future_dates = pd.DataFrame(index=add_dates[1:], columns=df.columns)
 # Reverse scale the future prediction
 df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
                           index=future_dates[-N_INPUT:].index, columns=['Prediction'])
-# index=future_dates[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
+# index=future_dates[-N_INPUT:].index,
+# columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_proj = pd.concat([df, df_predict], axis=1)
 df_proj = df_proj[len(df_proj) - PLOT_RANGE:]
 
