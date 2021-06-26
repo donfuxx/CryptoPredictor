@@ -42,8 +42,8 @@ EPOCHS = 500
 PRED_BATCHES = 5
 DROPOUT = 0.1
 BATCH_SIZE = 128
-# UNITS = N_INPUT * N_FEATURES
-UNITS = N_INPUT
+UNITS = N_INPUT * N_FEATURES
+# UNITS = N_INPUT * 1
 
 # download data
 df = pd.read_csv(CSV_PATH, parse_dates=['Date'])
@@ -77,16 +77,16 @@ def summary(for_model: Model) -> str:
 
 def compile_model() -> Model:
     model = Sequential()
-    # model.add(Conv1D(filters=N_INPUT, kernel_size=5,
-    #                  strides=1, padding="causal",
-    #                  activation="relu",
-    #                  input_shape=(N_INPUT, N_FEATURES)))
-    # model.add(
-    #     Bidirectional(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
-    model.add(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True))
+    model.add(Conv1D(filters=N_INPUT * N_FEATURES, kernel_size=5,
+                     strides=1, padding="causal",
+                     activation="linear",
+                     input_shape=(N_INPUT, N_FEATURES)))
+    model.add(
+        Bidirectional(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
+    # model.add(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True))
     # model.add(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES)))
     # model.add(Dropout(DROPOUT))
-    # model.add(Bidirectional(LSTM(UNITS, activation='linear', return_sequences=True)))
+    model.add(Bidirectional(LSTM(UNITS, activation='linear', return_sequences=True)))
     # model.add(Dense(UNITS))
     # model.add(Dropout(DROPOUT))
     # model.add(Bidirectional(LSTM(UNITS, activation='linear', return_sequences=True)))
@@ -114,7 +114,7 @@ def compile_model() -> Model:
 
 def create_model_callbacks() -> []:
     es = EarlyStopping(monitor='loss', min_delta=1e-10, patience=30, verbose=1)
-    rlr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=20, verbose=1)
+    rlr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=25, verbose=1)
     mcp = ModelCheckpoint(filepath='weights.h5', monitor='loss', verbose=1, save_best_only=True,
                           save_weights_only=True)
 
@@ -163,7 +163,8 @@ for i in range(PRED_BATCHES):
 # I did this for plotting. There are many other (better) ways to do this.
 df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
                           index=df[-N_INPUT * PRED_BATCHES:].index, columns=['Prediction'])
-# index=df[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
+                          # index=df[-N_INPUT * PRED_BATCHES:].index,
+                          # columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_test = pd.concat([df, df_predict], axis=1)
 df_test = df_test[len(df_test) - N_INPUT * PRED_BATCHES:]
 
@@ -199,8 +200,8 @@ future_dates = pd.DataFrame(index=add_dates[1:], columns=df.columns)
 # Reverse scale the future prediction
 df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
                           index=future_dates[-N_INPUT:].index, columns=['Prediction'])
-# index=future_dates[-N_INPUT:].index,
-# columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
+                          # index=future_dates[-N_INPUT:].index,
+                          # columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_proj = pd.concat([df, df_predict], axis=1)
 df_proj = df_proj[len(df_proj) - N_INPUT * PRED_BATCHES:]
 
