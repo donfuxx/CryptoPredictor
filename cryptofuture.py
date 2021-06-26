@@ -38,11 +38,11 @@ CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD
 N_INPUT = 8
 TRAIN_SPLIT = N_INPUT * 1
 N_FEATURES = 1
-EPOCHS = 50
-PLOT_RANGE = N_INPUT * 3
+EPOCHS = 500
+PRED_BATCHES = 10
 DROPOUT = 0.1
 BATCH_SIZE = 128
-# UNITS = N_INPUT * BATCH_SIZE * 1
+# UNITS = N_INPUT * N_FEATURES
 UNITS = N_INPUT * 1
 
 # download data
@@ -146,30 +146,26 @@ history = model.fit_generator(generator, epochs=EPOCHS, callbacks=create_model_c
 #     save the prediction to our list
 #     add the prediction to the end of the batch to be used in the next prediction
 pred_list = []
-batch = train[-N_INPUT*4:-N_INPUT*3].reshape((1, N_INPUT, N_FEATURES))
-for i in range(N_INPUT):
-    pred_list.append(model.predict(batch)[0])
-    batch = np.append(batch[:, 1:, :], [[pred_list[i]]], axis=1)
 
-batch = train[-N_INPUT*3:-N_INPUT*2].reshape((1, N_INPUT, N_FEATURES))
-for i in range(N_INPUT):
-    pred_list.append(model.predict(batch)[0])
-    batch = np.append(batch[:, 1:, :], [[pred_list[i]]], axis=1)
 
-batch = train[-N_INPUT*2:-N_INPUT].reshape((1, N_INPUT, N_FEATURES))
-for i in range(N_INPUT):
-    pred_list.append(model.predict(batch)[0])
-    batch = np.append(batch[:, 1:, :], [[pred_list[i]]], axis=1)
+def create_validation_batch(n: int) -> []:
+    batch = train[-N_INPUT * n - N_INPUT:-N_INPUT * n].reshape((1, N_INPUT, N_FEATURES))
+    for i in range(N_INPUT):
+        pred_list.append(model.predict(batch)[0])
+        batch = np.append(batch[:, 1:, :], [[pred_list[i]]], axis=1)
 
+
+for i in range(PRED_BATCHES):
+    create_validation_batch(i + 1)
 
 # Now that we have our list of predictions, we need to reverse the scaling we did in the beginning.
 # The code is also creating a dataframe out of the prediction list, which is concatenated with the original dataframe.
 # I did this for plotting. There are many other (better) ways to do this.
 df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
-                          index=df[-N_INPUT*3:].index, columns=['Prediction'])
+                          index=df[-N_INPUT * PRED_BATCHES:].index, columns=['Prediction'])
 # index=df[-N_INPUT:].index, columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_test = pd.concat([df, df_predict], axis=1)
-df_test = df_test[len(df_test) - PLOT_RANGE:]
+df_test = df_test[len(df_test) - N_INPUT * PRED_BATCHES:]
 
 # Plot the predictions
 plt.figure(figsize=(20, 8))
@@ -206,7 +202,7 @@ df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
 # index=future_dates[-N_INPUT:].index,
 # columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_proj = pd.concat([df, df_predict], axis=1)
-df_proj = df_proj[len(df_proj) - PLOT_RANGE:]
+df_proj = df_proj[len(df_proj) - N_INPUT * PRED_BATCHES:]
 
 # Plot results
 plt.plot(df_proj.index, df_proj['Prediction'], color='g')
