@@ -39,11 +39,11 @@ N_INPUT = 8
 TRAIN_SPLIT = N_INPUT * 1
 N_FEATURES = 1
 EPOCHS = 500
-PRED_BATCHES = 10
+PRED_BATCHES = 5
 DROPOUT = 0.1
 BATCH_SIZE = 128
 # UNITS = N_INPUT * N_FEATURES
-UNITS = N_INPUT * 1
+UNITS = N_INPUT
 
 # download data
 df = pd.read_csv(CSV_PATH, parse_dates=['Date'])
@@ -156,7 +156,7 @@ def create_validation_batch(n: int) -> []:
 
 
 for i in range(PRED_BATCHES):
-    create_validation_batch(i + 1)
+    create_validation_batch(PRED_BATCHES - i + 1)
 
 # Now that we have our list of predictions, we need to reverse the scaling we did in the beginning.
 # The code is also creating a dataframe out of the prediction list, which is concatenated with the original dataframe.
