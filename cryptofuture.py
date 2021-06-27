@@ -41,8 +41,8 @@ N_FEATURES = 6
 EPOCHS = 500
 PRED_BATCHES = 3
 DROPOUT = 0.1
-BATCH_SIZE = 128
-UNITS = N_INPUT * N_FEATURES
+BATCH_SIZE = 32
+UNITS = N_INPUT * N_FEATURES * BATCH_SIZE
 # UNITS = N_INPUT * 1
 
 # download data
@@ -77,16 +77,16 @@ def summary(for_model: Model) -> str:
 
 def compile_model() -> Model:
     model = Sequential()
-    # model.add(Conv1D(filters=N_INPUT * N_FEATURES, kernel_size=5,
-    #                  strides=1, padding="causal",
-    #                  activation="linear",
-    #                  input_shape=(N_INPUT, N_FEATURES)))
-    model.add(
-        Bidirectional(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
+    model.add(Conv1D(filters=N_INPUT * N_FEATURES, kernel_size=5,
+                     strides=1, padding="causal",
+                     activation="linear",
+                     input_shape=(N_INPUT, N_FEATURES)))
+    # model.add(
+    #     Bidirectional(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
     # model.add(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True))
     # model.add(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES)))
     # model.add(Dropout(DROPOUT))
-    model.add(Bidirectional(LSTM(UNITS, activation='linear', return_sequences=True)))
+    # model.add(Bidirectional(LSTM(UNITS, activation='linear', return_sequences=True)))
     # model.add(Dense(UNITS))
     # model.add(Dropout(DROPOUT))
     # model.add(Bidirectional(LSTM(UNITS, activation='linear', return_sequences=True)))
