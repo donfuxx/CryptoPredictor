@@ -35,11 +35,11 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
-N_INPUT = 8
+N_INPUT = 7
 TRAIN_SPLIT = N_INPUT * 1
-N_FEATURES = 1
+N_FEATURES = 6
 EPOCHS = 500
-PRED_BATCHES = 5
+PRED_BATCHES = 3
 DROPOUT = 0.1
 BATCH_SIZE = 128
 UNITS = N_INPUT * N_FEATURES
@@ -47,7 +47,7 @@ UNITS = N_INPUT * N_FEATURES
 
 # download data
 df = pd.read_csv(CSV_PATH, parse_dates=['Date'])
-df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
+# df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
 
 # Put the month column in the index.
 df = df.set_index("Date")
@@ -77,10 +77,10 @@ def summary(for_model: Model) -> str:
 
 def compile_model() -> Model:
     model = Sequential()
-    model.add(Conv1D(filters=N_INPUT * N_FEATURES, kernel_size=5,
-                     strides=1, padding="causal",
-                     activation="linear",
-                     input_shape=(N_INPUT, N_FEATURES)))
+    # model.add(Conv1D(filters=N_INPUT * N_FEATURES, kernel_size=5,
+    #                  strides=1, padding="causal",
+    #                  activation="linear",
+    #                  input_shape=(N_INPUT, N_FEATURES)))
     model.add(
         Bidirectional(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True)))
     # model.add(LSTM(UNITS, activation='linear', input_shape=(N_INPUT, N_FEATURES), return_sequences=True))
@@ -96,7 +96,7 @@ def compile_model() -> Model:
     # model.add(Bidirectional(LSTM(UNITS, activation='linear', return_sequences=True)))
     # model.add(Dropout(DROPOUT))
     model.add(LSTM(UNITS, activation='linear'))
-    # model.add(Dropout(DROPOUT))
+    model.add(Dropout(DROPOUT))
     # model.add(Dense(N_INPUT))
     # model.add(Dense(UNITS))
     # model.add(Lambda(lambda x: np.asarray(x).reshape(1024, 1)))
@@ -148,8 +148,8 @@ history = model.fit_generator(generator, epochs=EPOCHS, callbacks=create_model_c
 pred_list = []
 
 
-def create_validation_batch(n: int) -> []:
-    batch = train[-N_INPUT * n - N_INPUT:-N_INPUT * n].reshape((1, N_INPUT, N_FEATURES))
+def create_validation_batch(n: int):
+    batch = train[-(N_INPUT * n):-(N_INPUT * (n - 1))].reshape((1, N_INPUT, N_FEATURES))
     for i in range(N_INPUT):
         pred_list.append(model.predict(batch)[0])
         batch = np.append(batch[:, 1:, :], [[pred_list[i]]], axis=1)
@@ -162,9 +162,9 @@ for i in range(PRED_BATCHES):
 # The code is also creating a dataframe out of the prediction list, which is concatenated with the original dataframe.
 # I did this for plotting. There are many other (better) ways to do this.
 df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
-                          index=df[-N_INPUT * PRED_BATCHES:].index, columns=['Prediction'])
-                          # index=df[-N_INPUT * PRED_BATCHES:].index,
-                          # columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
+                          # index=df[-N_INPUT * PRED_BATCHES:].index, columns=['Prediction'])
+index=df[-N_INPUT * PRED_BATCHES:].index,
+columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_test = pd.concat([df, df_predict], axis=1)
 df_test = df_test[len(df_test) - N_INPUT * PRED_BATCHES:]
 
@@ -193,15 +193,16 @@ for i in range(N_INPUT):
     pred_list.append(model.predict(batch)[0])
     batch = np.append(batch[:, 1:, :], [[pred_list[i]]], axis=1)
 
+
 # Create new future dates
 add_dates = [df.index[-1] + DateOffset(days=x) for x in range(0, N_INPUT + 1)]
 future_dates = pd.DataFrame(index=add_dates[1:], columns=df.columns)
 
 # Reverse scale the future prediction
 df_predict = pd.DataFrame(scaler.inverse_transform(pred_list),
-                          index=future_dates[-N_INPUT:].index, columns=['Prediction'])
-                          # index=future_dates[-N_INPUT:].index,
-                          # columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
+                          # index=future_dates[-N_INPUT:].index, columns=['Prediction'])
+index=future_dates[-N_INPUT:].index,
+columns=['Prediction', 'High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df_proj = pd.concat([df, df_predict], axis=1)
 df_proj = df_proj[len(df_proj) - N_INPUT * PRED_BATCHES:]
 
