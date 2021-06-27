@@ -43,6 +43,17 @@ LOOK_BACK = 50
 UNITS = LOOK_BACK
 TEST_SPLIT = .95
 
+
+def create_model_callbacks() -> []:
+    es = EarlyStopping(monitor='loss', min_delta=1e-10, patience=10, verbose=1)
+    rlr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, verbose=1)
+    mcp = ModelCheckpoint(filepath='weights.h5', monitor='loss', verbose=1, save_best_only=True,
+                          save_weights_only=True)
+
+    tb = TensorBoard('logs')
+    return [es, rlr, mcp, tb]
+
+
 # download data
 df = pd.read_csv(CSV_PATH, parse_dates=['Date'])
 # df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
@@ -98,7 +109,7 @@ model.summary()
 model.compile(optimizer='adam', loss='mean_squared_error')
 
 
-model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE)
+model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
 
 predicted_value = model.predict(X_test)
 print(X_test)
