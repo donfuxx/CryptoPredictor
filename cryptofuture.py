@@ -35,15 +35,13 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
-N_INPUT = 7
-TRAIN_SPLIT = N_INPUT * 1
-N_FEATURES = 6
-EPOCHS = 500
-PRED_BATCHES = 3
+N_FEATURES = 2
+EPOCHS = 5
 DROPOUT = 0.1
 BATCH_SIZE = 32
-UNITS = N_INPUT * N_FEATURES * BATCH_SIZE
-# UNITS = N_INPUT * 1
+LOOK_BACK = 50
+UNITS = LOOK_BACK
+TEST_SPLIT = .95
 
 # download data
 df = pd.read_csv(CSV_PATH, parse_dates=['Date'])
@@ -57,77 +55,50 @@ df = df.fillna(df.mean())
 
 print(df.head())
 
-# # Split data between the training and testing sets.
-# train, test = df[:-TRAIN_SPLIT], df[-TRAIN_SPLIT:]
-# print(f'\n train: \n {train}')
-# print(f'\n test: \n {test}')
-#
-# # Scale data.
-# scaler = MinMaxScaler()
-# scaler.fit(df)
-# train = scaler.transform(train)
-# test = scaler.transform(test)
-# print(f'\n train scaled: \n {train}')
-# print(f'\n test scaled: \n {test}')
-
 stock_data = df
 
 input_feature = stock_data.iloc[:, [5, 1]].values
 input_data = input_feature
 
-# plt.plot(input_feature[:, 0])
-# plt.title("Volume of stocks sold")
-# plt.xlabel("Time (latest-> oldest)")
-# plt.ylabel("Volume of stocks traded")
-# plt.show()
-#
-# plt.plot(input_feature[:, 1], color='blue')
-# plt.title("Google Stock Prices")
-# plt.xlabel("Time (latest-> oldest)")
-# plt.ylabel("Stock Opening Price")
-# plt.show()
+scaler = MinMaxScaler(feature_range=(0, 1))
+input_data[:, 0:N_FEATURES] = scaler.fit_transform(input_feature[:, :])
 
-sc = MinMaxScaler(feature_range=(0, 1))
-input_data[:, 0:2] = sc.fit_transform(input_feature[:, :])
-
-lookback = 50
-
-test_size = int(.95 * len(stock_data))
+test_size = int(TEST_SPLIT * len(stock_data))
 X = []
 y = []
-for i in range(len(stock_data) - lookback - 1):
+for i in range(len(stock_data) - LOOK_BACK - 1):
     t = []
-    for j in range(0, lookback):
+    for j in range(0, LOOK_BACK):
         t.append(input_data[[(i + j)], :])
     X.append(t)
-    y.append(input_data[i + lookback + 1, 1])
+    y.append(input_data[i + LOOK_BACK + 1, 1])
 
 X, y = np.array(X), np.array(y)
 
-y_train = y[:test_size + lookback]
-X_train = X[:test_size + lookback]
-X = X.reshape(X.shape[0], lookback, 2)
-X_train = X_train.reshape(X_train.shape[0], lookback, 2)
+y_train = y[:test_size + LOOK_BACK]
+X_train = X[:test_size + LOOK_BACK]
+X = X.reshape(X.shape[0], LOOK_BACK, N_FEATURES)
+X_train = X_train.reshape(X_train.shape[0], LOOK_BACK, N_FEATURES)
 print(X.shape)
 print(X_train.shape)
 
-X_test = X[test_size + lookback:]
-X = X.reshape(X.shape[0], lookback, 2)
-X_test = X_test.reshape(X_test.shape[0], lookback, 2)
+X_test = X[test_size + LOOK_BACK:]
+X = X.reshape(X.shape[0], LOOK_BACK, 2)
+X_test = X_test.reshape(X_test.shape[0], LOOK_BACK, N_FEATURES)
 print(X.shape)
 print(X_test.shape)
 
 model = Sequential()
-model.add(LSTM(units=50, return_sequences=True, input_shape=(X.shape[1], 2)))
-model.add(LSTM(units=50, return_sequences=True))
-model.add(LSTM(units=50))
+model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(X.shape[1], N_FEATURES)))
+model.add(LSTM(units=UNITS, return_sequences=True))
+model.add(LSTM(units=UNITS))
 model.add(Dense(units=1))
 model.summary()
 
 model.compile(optimizer='adam', loss='mean_squared_error')
 
 
-model.fit(X_train, y_train, epochs=20, batch_size=32)
+model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE)
 
 predicted_value = model.predict(X_test)
 print(X_test)
@@ -137,7 +108,7 @@ print(len(predicted_value))
 
 plt.figure(figsize=(20, 8))
 # plt.plot(input_data[lookback + test_size:test_size + (2 * lookback), 1], color='green')
-plt.plot(input_data[(2 * lookback) + test_size + 1:, 1], color='green')
+plt.plot(input_data[(2 * LOOK_BACK) + test_size + 1:, 1], color='green')
 # plt.plot(predicted_value[-lookback:], color='red')
 plt.plot(predicted_value, color='red')
 plt.legend(['Actual', 'Prediction'], loc='best', fontsize='xx-large')
