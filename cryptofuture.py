@@ -36,17 +36,17 @@ tensorflow.keras.backend.clear_session()
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
 N_FEATURES = 2
-EPOCHS = 5
+EPOCHS = 1
 DROPOUT = 0.1
 BATCH_SIZE = 32
 LOOK_BACK = 50
-UNITS = LOOK_BACK
+UNITS = LOOK_BACK * N_FEATURES
 TEST_SPLIT = .9
 
 
 def create_model_callbacks() -> []:
-    es = EarlyStopping(monitor='loss', min_delta=1e-10, patience=10, verbose=1)
-    rlr = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, verbose=1)
+    es = EarlyStopping(monitor='loss', min_delta=1e-10, patience=40, verbose=1)
+    rlr = ReduceLROnPlateau(monitor='loss', factor=0.2, patience=30, verbose=1)
     mcp = ModelCheckpoint(filepath='weights.h5', monitor='loss', verbose=1, save_best_only=True,
                           save_weights_only=True)
 
@@ -73,6 +73,7 @@ input_data = input_feature
 
 scaler = MinMaxScaler(feature_range=(0, 1))
 input_data[:, 0:N_FEATURES] = scaler.fit_transform(input_feature[:, :])
+# add another model to predict volumes?
 
 test_size = int(TEST_SPLIT * len(stock_data))
 X = []
@@ -82,7 +83,7 @@ for i in range(len(stock_data) - LOOK_BACK - 1):
     for j in range(0, LOOK_BACK):
         t.append(input_data[[(i + j)], :])
     X.append(t)
-    y.append(input_data[i + LOOK_BACK + 1, 1])
+    y.append(input_data[i + LOOK_BACK , 1])
 
 X, y = np.array(X), np.array(y)
 
@@ -109,12 +110,13 @@ model.summary()
 model.compile(optimizer='adam', loss='mean_squared_error')
 
 
-history = model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
+# history = model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
+history = model.fit(X, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
 
 predicted_value = model.predict(X_test)
-print(X_test)
+# print(X_test)
 print(len(X_test))
-print(predicted_value)
+# print(predicted_value)
 print(len(predicted_value))
 
 plt.figure(figsize=(20, 8))
@@ -131,3 +133,19 @@ plt.savefig(
     f'plots/{CURRENCY}_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{history.history["loss"][-1]}.png')
 plt.show()
 
+print(f'predicted values: {predicted_value}')
+# print(f'X tail: {X[-50:]}')
+# print(f'y tail: {y[-50:]}')
+# X_last = X[-1]
+# print(f'X_last: {X_last}')
+# print(f'X_last input values: {X_last[-1]}')
+#
+# # X_last = np.delete(X_last, [X_last[0]])
+# X_last = np.append(X_last[1:], predicted_value[-1])
+# print(f'X_last new: {X_last}')
+# print(f'X_last input values new: {X_last[-1]}')
+#
+# X_predict = np.expand_dims(X_last, axis=0)
+# print(f'X_predict{X_predict}')
+# future_prediction = model.predict(X_predict)
+# print(future_prediction)
