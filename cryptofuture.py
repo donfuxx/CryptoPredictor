@@ -27,8 +27,8 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
-N_FEATURES = 6
-EPOCHS = 500
+N_FEATURES = 7
+EPOCHS = 1000
 DROPOUT = 0.1
 BATCH_SIZE = 128
 LOOK_BACK = 50
@@ -47,6 +47,10 @@ def create_model_callbacks() -> []:
     return [es, rlr, mcp, tb]
 
 
+def moving_average(array: [], w: int) -> []:
+    return np.concatenate((np.ones(w - 1), np.convolve(array, np.ones(w), 'valid') / w))
+
+
 # download data
 df = pd.read_csv(CSV_PATH, parse_dates=['Date'])
 # df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
@@ -54,14 +58,22 @@ df = pd.read_csv(CSV_PATH, parse_dates=['Date'])
 # Put the month column in the index.
 df = df.set_index("Date")
 
+# add moving averages
+open_values = df['Open'].to_numpy()
+print(f'open_values: {open_values}')
+ma_50 = moving_average(open_values, 50).tolist()
+print(f'ma_50: {ma_50}')
+df['ma_50'] = ma_50
+
 # fill nan values
 df = df.fillna(df.mean())
 
 print(df.head())
+print(df.tail())
 
 stock_data = df
 
-input_feature = stock_data.iloc[:, [0, 1, 2, 3, 4, 5]].values
+input_feature = stock_data.iloc[:, [0, 1, 2, 3, 4, 5, 6]].values
 input_data = input_feature
 
 scaler = MinMaxScaler(feature_range=(0, 1))
