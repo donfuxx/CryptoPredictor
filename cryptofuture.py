@@ -36,7 +36,7 @@ tensorflow.keras.backend.clear_session()
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
 N_FEATURES = 2
-EPOCHS = 15
+EPOCHS = 1
 DROPOUT = 0.1
 BATCH_SIZE = 32
 LOOK_BACK = 50
@@ -123,43 +123,17 @@ print(len(predicted_value))
 
 
 def get_updated_x(x_last: [], last_prediction: []) -> []:
-    # print(f'predicted values: {predicted_value}')
-    # print(f'X tail: {X[-50:]}')
-    # print(f'y tail: {y[-50:]}')
-    # x_last = X[-1]
-    # print(f'X_last: {X_last}')
-    print(f'X_last input values: {x_last[-1]}')
+    print(f'x_last input values: {x_last[-1]}')
 
-    # X_last = np.delete(X_last, [X_last[0]])
     x_last = np.append(x_last[1:], last_prediction)
     x_last = x_last.reshape(50, 2)
-    # print(f'X_last new: {X_last}')
-    print(f'X_last input values new: {x_last[-1]}')
+    # print(f'x_last new: {X_last}')
+    print(f'x_last input values new: {x_last[-1]}')
 
-    # X_last = get_updated_X(predicted_value[-1])
-    # X_predict = np.expand_dims(X_last, axis=0)
-    # print(f'X_predict{X_predict}')
     return np.expand_dims(x_last, axis=0)
 
 
 for k in range(10):
-    # # print(f'predicted values: {predicted_value}')
-    # # print(f'X tail: {X[-50:]}')
-    # # print(f'y tail: {y[-50:]}')
-    # X_last = X[-1]
-    # # print(f'X_last: {X_last}')
-    # print(f'X_last input values: {X_last[-1]}')
-    #
-    # # X_last = np.delete(X_last, [X_last[0]])
-    # X_last = np.append(X_last[1:], predicted_value[-1])
-    # X_last = X_last.reshape(50, 2)
-    # # print(f'X_last new: {X_last}')
-    # print(f'X_last input values new: {X_last[-1]}')
-
-    # X_last = get_updated_X(predicted_value[-1])
-
-    # X_predict = np.expand_dims(X_last, axis=0)
-    # print(f'X_predict{X_predict}')
     X_predict = get_updated_x(X[-1], predicted_value[-1])
     future_prediction = model.predict(X_predict)
     print(future_prediction)
@@ -167,7 +141,6 @@ for k in range(10):
     X = np.append(X, X_predict, axis=0)
 
     predicted_value = np.append(predicted_value, future_prediction, axis=0)
-    # predicted_value = predicted_value.reshape(-1, 2)
     print(f'predicted values: {predicted_value}')
 
 predicted_value = predicted_value[:, 1]
