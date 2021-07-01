@@ -10,9 +10,13 @@ import tensorflow
 from matplotlib import rcParams
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard
+from tensorflow.keras.layers import Bidirectional
 from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import LSTM
+from tensorflow.keras.losses import Huber
 from tensorflow.keras.models import Sequential
+from tensorflow.keras.optimizers import SGD
 
 rcParams.update({'figure.autolayout': True})
 
@@ -24,12 +28,13 @@ tensorflow.keras.backend.clear_session()
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
 N_FEATURES = 2
-EPOCHS = 1
+EPOCHS = 50
 DROPOUT = 0.1
 BATCH_SIZE = 32
 LOOK_BACK = 50
-UNITS = LOOK_BACK * N_FEATURES
+UNITS = LOOK_BACK
 TEST_SPLIT = .9
+PREDICTION_RANGE = 30
 
 
 def create_model_callbacks() -> []:
@@ -90,15 +95,22 @@ print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
 
 model = Sequential()
-# model.add(
-#     Bidirectional(LSTM(units=UNITS, input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
-model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
+model.add(
+    Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
+model.add(Dropout(DROPOUT))
+# model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
 # model.add(Bidirectional(LSTM(units=UNITS, return_sequences=True)))
-model.add(LSTM(units=UNITS))
+model.add(Bidirectional(LSTM(units=UNITS, activation='relu')))
+model.add(Dropout(DROPOUT))
+# model.add(LSTM(units=UNITS))
 model.add(Dense(units=N_FEATURES))
 
-model.compile(optimizer='adam', loss='mean_squared_error')
-model.summary()
+# model.compile(optimizer='adam', loss='mean_squared_error')
+optimizer = SGD(lr=1e-1, momentum=0.9)
+model.compile(loss=Huber(),
+              optimizer=optimizer,
+              metrics=["mae"])
+# model.summary()
 
 # history = model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
 history = model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
@@ -114,14 +126,14 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
     print(f'x_last input values: {x_last[-1]}')
 
     x_last = np.append(x_last[1:], last_prediction)
-    x_last = x_last.reshape(50, 2)
+    x_last = x_last.reshape(LOOK_BACK, N_FEATURES)
     # print(f'x_last new: {X_last}')
     print(f'x_last input values new: {x_last[-1]}')
 
     return np.expand_dims(x_last, axis=0)
 
 
-for prediction_steps in range(10):
+for prediction_steps in range(PREDICTION_RANGE):
     X_predict = get_updated_x(x[-1], y_predict[-1])
     y_predict_new = model.predict(X_predict)
     print(y_predict_new)
