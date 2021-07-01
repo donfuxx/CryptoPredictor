@@ -1,30 +1,18 @@
 # https://medium.datadriveninvestor.com/multivariate-time-series-using-rnn-with-keras-7f78f4488679
 
-import inline as inline
-import matplotlib
+import warnings
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 # %matplotlib inline
 import tensorflow
-from statsmodels.tools.eval_measures import rmse
+from matplotlib import rcParams
 from sklearn.preprocessing import MinMaxScaler
-from pandas.tseries.offsets import DateOffset
-from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import LSTM
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import Bidirectional
-from tensorflow.keras.layers import Lambda
-from tensorflow.keras.layers import Conv1D
-from tensorflow.keras.optimizers import SGD
-from tensorflow.keras.callbacks import LearningRateScheduler
-from tensorflow.keras.losses import Huber
-from tensorflow.keras import Model
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard
-import warnings
-from matplotlib import rcParams
+from tensorflow.keras.models import Sequential
 
 rcParams.update({'figure.autolayout': True})
 
@@ -76,35 +64,35 @@ input_data[:, 0:N_FEATURES] = scaler.fit_transform(input_feature[:, :])
 # add another model to predict volumes?
 
 test_size = int(TEST_SPLIT * len(stock_data))
-X = []
+x = []
 y = []
 for i in range(len(stock_data) - LOOK_BACK - 1):
     t = []
     for j in range(0, LOOK_BACK):
         t.append(input_data[[(i + j)], :])
-    X.append(t)
+    x.append(t)
     y.append(input_data[i + LOOK_BACK, :])
 
-X, y = np.array(X), np.array(y)
+x, y = np.array(x), np.array(y)
 
 y_train = y[:test_size + LOOK_BACK]
-X_train = X[:test_size + LOOK_BACK]
-X = X.reshape(X.shape[0], LOOK_BACK, N_FEATURES)
-X_train = X_train.reshape(X_train.shape[0], LOOK_BACK, N_FEATURES)
-print(f'X.shape: {X.shape}')
+x_train = x[:test_size + LOOK_BACK]
+x = x.reshape(x.shape[0], LOOK_BACK, N_FEATURES)
+x_train = x_train.reshape(x_train.shape[0], LOOK_BACK, N_FEATURES)
+print(f'x.shape: {x.shape}')
 print(f'y.shape: {y.shape}')
-print(f'X_train.shape: {X_train.shape}')
+print(f'x_train.shape: {x_train.shape}')
 
-X_test = X[test_size + LOOK_BACK:]
-X = X.reshape(X.shape[0], LOOK_BACK, 2)
-X_test = X_test.reshape(X_test.shape[0], LOOK_BACK, N_FEATURES)
-print(f'X.shape: {X.shape}')
-print(f'X_test.shape: {X_test.shape}')
+x_test = x[test_size + LOOK_BACK:]
+x = x.reshape(x.shape[0], LOOK_BACK, 2)
+x_test = x_test.reshape(x_test.shape[0], LOOK_BACK, N_FEATURES)
+print(f'x.shape: {x.shape}')
+print(f'x_test.shape: {x_test.shape}')
 
 model = Sequential()
 # model.add(
-#     Bidirectional(LSTM(units=UNITS, input_shape=(X.shape[1], N_FEATURES), return_sequences=True)))
-model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(X.shape[1], N_FEATURES)))
+#     Bidirectional(LSTM(units=UNITS, input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
+model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
 # model.add(Bidirectional(LSTM(units=UNITS, return_sequences=True)))
 model.add(LSTM(units=UNITS))
 model.add(Dense(units=N_FEATURES))
@@ -112,14 +100,14 @@ model.add(Dense(units=N_FEATURES))
 model.compile(optimizer='adam', loss='mean_squared_error')
 model.summary()
 
-# history = model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
-history = model.fit(X, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
+# history = model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
+history = model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
 
-predicted_value = model.predict(X_test)
-# print(X_test)
-print(len(X_test))
+y_predict = model.predict(x_test)
+# print(x_test)
+print(len(x_test))
 # print(predicted_value)
-print(len(predicted_value))
+print(len(y_predict))
 
 
 def get_updated_x(x_last: [], last_prediction: []) -> []:
@@ -133,22 +121,22 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
     return np.expand_dims(x_last, axis=0)
 
 
-for k in range(10):
-    X_predict = get_updated_x(X[-1], predicted_value[-1])
-    future_prediction = model.predict(X_predict)
-    print(future_prediction)
-    print(f'future_prediction.shape: {future_prediction.shape}')
-    X = np.append(X, X_predict, axis=0)
+for prediction_steps in range(10):
+    X_predict = get_updated_x(x[-1], y_predict[-1])
+    y_predict_new = model.predict(X_predict)
+    print(y_predict_new)
+    print(f'future_prediction.shape: {y_predict_new.shape}')
+    x = np.append(x, X_predict, axis=0)
 
-    predicted_value = np.append(predicted_value, future_prediction, axis=0)
-    print(f'predicted values: {predicted_value}')
+    y_predict = np.append(y_predict, y_predict_new, axis=0)
+    print(f'predicted values: {y_predict}')
 
-predicted_value = predicted_value[:, 1]
+y_predict = y_predict[:, 1]
 plt.figure(figsize=(20, 8))
 # plt.plot(input_data[lookback + test_size:test_size + (2 * lookback), 1], color='green')
 plt.plot(input_data[(2 * LOOK_BACK) + test_size + 1:, 1], color='green')
 # plt.plot(predicted_value[-lookback:], color='red')
-plt.plot(predicted_value, color='red')
+plt.plot(y_predict, color='red')
 plt.legend(['Actual', 'Prediction'], loc='best', fontsize='xx-large')
 plt.title("Opening price of stocks sold")
 plt.xlabel("Time (latest-> oldest)")
