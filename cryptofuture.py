@@ -36,7 +36,7 @@ tensorflow.keras.backend.clear_session()
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
 N_FEATURES = 2
-EPOCHS = 1
+EPOCHS = 15
 DROPOUT = 0.1
 BATCH_SIZE = 32
 LOOK_BACK = 50
@@ -83,7 +83,7 @@ for i in range(len(stock_data) - LOOK_BACK - 1):
     for j in range(0, LOOK_BACK):
         t.append(input_data[[(i + j)], :])
     X.append(t)
-    y.append(input_data[i + LOOK_BACK , 1])
+    y.append(input_data[i + LOOK_BACK, :])
 
 X, y = np.array(X), np.array(y)
 
@@ -91,24 +91,26 @@ y_train = y[:test_size + LOOK_BACK]
 X_train = X[:test_size + LOOK_BACK]
 X = X.reshape(X.shape[0], LOOK_BACK, N_FEATURES)
 X_train = X_train.reshape(X_train.shape[0], LOOK_BACK, N_FEATURES)
-print(X.shape)
-print(X_train.shape)
+print(f'X.shape: {X.shape}')
+print(f'y.shape: {y.shape}')
+print(f'X_train.shape: {X_train.shape}')
 
 X_test = X[test_size + LOOK_BACK:]
 X = X.reshape(X.shape[0], LOOK_BACK, 2)
 X_test = X_test.reshape(X_test.shape[0], LOOK_BACK, N_FEATURES)
-print(X.shape)
-print(X_test.shape)
+print(f'X.shape: {X.shape}')
+print(f'X_test.shape: {X_test.shape}')
 
 model = Sequential()
+# model.add(
+#     Bidirectional(LSTM(units=UNITS, input_shape=(X.shape[1], N_FEATURES), return_sequences=True)))
 model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(X.shape[1], N_FEATURES)))
-model.add(LSTM(units=UNITS, return_sequences=True))
+# model.add(Bidirectional(LSTM(units=UNITS, return_sequences=True)))
 model.add(LSTM(units=UNITS))
-model.add(Dense(units=1))
-model.summary()
+model.add(Dense(units=N_FEATURES))
 
 model.compile(optimizer='adam', loss='mean_squared_error')
-
+model.summary()
 
 # history = model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
 history = model.fit(X, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
@@ -119,6 +121,56 @@ print(len(X_test))
 # print(predicted_value)
 print(len(predicted_value))
 
+
+def get_updated_x(x_last: [], last_prediction: []) -> []:
+    # print(f'predicted values: {predicted_value}')
+    # print(f'X tail: {X[-50:]}')
+    # print(f'y tail: {y[-50:]}')
+    # x_last = X[-1]
+    # print(f'X_last: {X_last}')
+    print(f'X_last input values: {x_last[-1]}')
+
+    # X_last = np.delete(X_last, [X_last[0]])
+    x_last = np.append(x_last[1:], last_prediction)
+    x_last = x_last.reshape(50, 2)
+    # print(f'X_last new: {X_last}')
+    print(f'X_last input values new: {x_last[-1]}')
+
+    # X_last = get_updated_X(predicted_value[-1])
+    # X_predict = np.expand_dims(X_last, axis=0)
+    # print(f'X_predict{X_predict}')
+    return np.expand_dims(x_last, axis=0)
+
+
+for k in range(10):
+    # # print(f'predicted values: {predicted_value}')
+    # # print(f'X tail: {X[-50:]}')
+    # # print(f'y tail: {y[-50:]}')
+    # X_last = X[-1]
+    # # print(f'X_last: {X_last}')
+    # print(f'X_last input values: {X_last[-1]}')
+    #
+    # # X_last = np.delete(X_last, [X_last[0]])
+    # X_last = np.append(X_last[1:], predicted_value[-1])
+    # X_last = X_last.reshape(50, 2)
+    # # print(f'X_last new: {X_last}')
+    # print(f'X_last input values new: {X_last[-1]}')
+
+    # X_last = get_updated_X(predicted_value[-1])
+
+    # X_predict = np.expand_dims(X_last, axis=0)
+    # print(f'X_predict{X_predict}')
+    X_predict = get_updated_x(X[-1], predicted_value[-1])
+    future_prediction = model.predict(X_predict)
+    print(future_prediction)
+    print(f'future_prediction.shape: {future_prediction.shape}')
+    X = np.append(X, X_predict, axis=0)
+
+    predicted_value = np.append(predicted_value, future_prediction, axis=0)
+    # predicted_value = predicted_value.reshape(-1, 2)
+    print(f'predicted values: {predicted_value}')
+
+predicted_value = predicted_value[:, 1]
 plt.figure(figsize=(20, 8))
 # plt.plot(input_data[lookback + test_size:test_size + (2 * lookback), 1], color='green')
 plt.plot(input_data[(2 * LOOK_BACK) + test_size + 1:, 1], color='green')
@@ -132,20 +184,3 @@ plt.ylabel("Stock Opening Price")
 plt.savefig(
     f'plots/{CURRENCY}_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{history.history["loss"][-1]}.png')
 plt.show()
-
-print(f'predicted values: {predicted_value}')
-# print(f'X tail: {X[-50:]}')
-# print(f'y tail: {y[-50:]}')
-# X_last = X[-1]
-# print(f'X_last: {X_last}')
-# print(f'X_last input values: {X_last[-1]}')
-#
-# # X_last = np.delete(X_last, [X_last[0]])
-# X_last = np.append(X_last[1:], predicted_value[-1])
-# print(f'X_last new: {X_last}')
-# print(f'X_last input values new: {X_last[-1]}')
-#
-# X_predict = np.expand_dims(X_last, axis=0)
-# print(f'X_predict{X_predict}')
-# future_prediction = model.predict(X_predict)
-# print(future_prediction)
