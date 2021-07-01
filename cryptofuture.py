@@ -27,7 +27,7 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
-N_FEATURES = 7
+N_FEATURES = 26
 EPOCHS = 1000
 DROPOUT = 0.1
 BATCH_SIZE = 128
@@ -61,9 +61,11 @@ df = df.set_index("Date")
 # add moving averages
 open_values = df['Open'].to_numpy()
 print(f'open_values: {open_values}')
-ma_50 = moving_average(open_values, 50).tolist()
-print(f'ma_50: {ma_50}')
-df['ma_50'] = ma_50
+
+for m in range(10, 210, 10):
+    ma = moving_average(open_values, m).tolist()
+    print(f'ma_{m}: {ma}')
+    df[f'ma_{m}'] = ma
 
 # fill nan values
 df = df.fillna(df.mean())
@@ -73,7 +75,8 @@ print(df.tail())
 
 stock_data = df
 
-input_feature = stock_data.iloc[:, [0, 1, 2, 3, 4, 5, 6]].values
+input_feature = stock_data.iloc[:,
+                [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]].values
 input_data = input_feature
 
 scaler = MinMaxScaler(feature_range=(0, 1))
