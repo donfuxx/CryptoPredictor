@@ -27,14 +27,14 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
-N_FEATURES = 2
-EPOCHS = 50
+N_FEATURES = 6
+EPOCHS = 500
 DROPOUT = 0.1
-BATCH_SIZE = 32
+BATCH_SIZE = 128
 LOOK_BACK = 50
 UNITS = LOOK_BACK
-TEST_SPLIT = .9
-PREDICTION_RANGE = 30
+TEST_SPLIT = .8
+PREDICTION_RANGE = 100
 
 
 def create_model_callbacks() -> []:
@@ -61,7 +61,7 @@ print(df.head())
 
 stock_data = df
 
-input_feature = stock_data.iloc[:, [5, 1]].values
+input_feature = stock_data.iloc[:, [0, 1, 2, 3, 4, 5]].values
 input_data = input_feature
 
 scaler = MinMaxScaler(feature_range=(0, 1))
@@ -89,7 +89,7 @@ print(f'y.shape: {y.shape}')
 print(f'x_train.shape: {x_train.shape}')
 
 x_test = x[test_size + LOOK_BACK:]
-x = x.reshape(x.shape[0], LOOK_BACK, 2)
+x = x.reshape(x.shape[0], LOOK_BACK, N_FEATURES)
 x_test = x_test.reshape(x_test.shape[0], LOOK_BACK, N_FEATURES)
 print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
@@ -99,17 +99,18 @@ model.add(
     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
 model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-# model.add(Bidirectional(LSTM(units=UNITS, return_sequences=True)))
+model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+model.add(Dropout(DROPOUT))
 model.add(Bidirectional(LSTM(units=UNITS, activation='relu')))
 model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS))
 model.add(Dense(units=N_FEATURES))
 
-# model.compile(optimizer='adam', loss='mean_squared_error')
-optimizer = SGD(lr=1e-1, momentum=0.9)
-model.compile(loss=Huber(),
-              optimizer=optimizer,
-              metrics=["mae"])
+model.compile(optimizer='adam', loss='mean_squared_error')
+# optimizer = SGD(lr=1e-1, momentum=0.9)
+# model.compile(loss=Huber(),
+#               optimizer=optimizer,
+#               metrics=["mae"])
 # model.summary()
 
 # history = model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
@@ -123,12 +124,12 @@ print(len(y_predict))
 
 
 def get_updated_x(x_last: [], last_prediction: []) -> []:
-    print(f'x_last input values: {x_last[-1]}')
+    # print(f'x_last input values: {x_last[-1]}')
 
     x_last = np.append(x_last[1:], last_prediction)
     x_last = x_last.reshape(LOOK_BACK, N_FEATURES)
     # print(f'x_last new: {X_last}')
-    print(f'x_last input values new: {x_last[-1]}')
+    # print(f'x_last input values new: {x_last[-1]}')
 
     return np.expand_dims(x_last, axis=0)
 
@@ -137,11 +138,11 @@ for prediction_steps in range(PREDICTION_RANGE):
     X_predict = get_updated_x(x[-1], y_predict[-1])
     y_predict_new = model.predict(X_predict)
     print(y_predict_new)
-    print(f'future_prediction.shape: {y_predict_new.shape}')
+    # print(f'future_prediction.shape: {y_predict_new.shape}')
     x = np.append(x, X_predict, axis=0)
 
     y_predict = np.append(y_predict, y_predict_new, axis=0)
-    print(f'predicted values: {y_predict}')
+    # print(f'predicted values: {y_predict}')
 
 y_predict = y_predict[:, 1]
 plt.figure(figsize=(20, 8))
