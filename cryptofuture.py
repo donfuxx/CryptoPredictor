@@ -27,14 +27,14 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
-N_FEATURES = 26
-EPOCHS = 1000
+# N_FEATURES = 26
+EPOCHS = 1
 DROPOUT = 0.1
 BATCH_SIZE = 128
 LOOK_BACK = 50
-UNITS = LOOK_BACK
+UNITS = LOOK_BACK * 3
 TEST_SPLIT = .8
-PREDICTION_RANGE = 100
+PREDICTION_RANGE = LOOK_BACK
 
 
 def create_model_callbacks() -> []:
@@ -54,6 +54,8 @@ def moving_average(array: [], w: int) -> []:
 # download data
 df = pd.read_csv(CSV_PATH, parse_dates=['Date'])
 # df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
+# df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'])
+
 
 # Put the month column in the index.
 df = df.set_index("Date")
@@ -75,8 +77,11 @@ print(df.tail())
 
 stock_data = df
 
-input_feature = stock_data.iloc[:,
-                [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]].values
+# input_feature = stock_data
+input_feature = stock_data.iloc[:, :].values
+N_FEATURES = len(input_feature[0])
+# input_feature = stock_data.iloc[:,
+#                 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]].values
 input_data = input_feature
 
 scaler = MinMaxScaler(feature_range=(0, 1))
@@ -112,11 +117,11 @@ print(f'x_test.shape: {x_test.shape}')
 model = Sequential()
 model.add(
     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
-model.add(Dropout(DROPOUT))
+# model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
-model.add(Dropout(DROPOUT))
-model.add(Bidirectional(LSTM(units=UNITS, activation='relu')))
+# model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+# model.add(Dropout(DROPOUT))
+model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
 model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS))
 model.add(Dense(units=N_FEATURES))
@@ -128,8 +133,11 @@ model.compile(optimizer='adam', loss='mean_squared_error')
 #               metrics=["mae"])
 # model.summary()
 
-# history = model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
-history = model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks())
+# history = model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
+#                     validation_split=0.1)
+history = model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
+                    # validation_split=0.05
+                    )
 
 y_predict = model.predict(x_test)
 # print(x_test)
@@ -152,7 +160,7 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
 for prediction_steps in range(PREDICTION_RANGE):
     X_predict = get_updated_x(x[-1], y_predict[-1])
     y_predict_new = model.predict(X_predict)
-    print(y_predict_new)
+    print(y_predict_new[0, 1])
     # print(f'future_prediction.shape: {y_predict_new.shape}')
     x = np.append(x, X_predict, axis=0)
 
