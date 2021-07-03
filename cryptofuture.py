@@ -32,8 +32,8 @@ CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD
 EPOCHS = 1000
 DROPOUT = 0.1
 BATCH_SIZE = 128
-LOOK_BACK = 90
-UNITS = LOOK_BACK * 1
+LOOK_BACK = 60
+UNITS = LOOK_BACK * 2
 TEST_SPLIT = .1
 PREDICTION_RANGE = LOOK_BACK * 2
 
