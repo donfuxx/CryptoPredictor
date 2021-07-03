@@ -11,6 +11,7 @@ from matplotlib import rcParams
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard
 from tensorflow.keras.layers import Bidirectional
+from tensorflow.keras.layers import Conv1D
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import LSTM
@@ -28,11 +29,11 @@ tensorflow.keras.backend.clear_session()
 CURRENCY = "BTC"
 CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
 # N_FEATURES = 26
-EPOCHS = 1
+EPOCHS = 1000
 DROPOUT = 0.1
 BATCH_SIZE = 128
 LOOK_BACK = 50
-UNITS = LOOK_BACK * 3
+UNITS = LOOK_BACK * 1
 TEST_SPLIT = .8
 PREDICTION_RANGE = LOOK_BACK
 
@@ -48,14 +49,33 @@ def create_model_callbacks() -> []:
 
 
 def moving_average(array: [], w: int) -> []:
-    return np.concatenate((np.ones(w - 1), np.convolve(array, np.ones(w), 'valid') / w))
+    return np.concatenate((np.full(w - 1, array[w]), np.convolve(array, np.ones(w), 'valid') / w))
 
 
 # download data
-df = pd.read_csv(CSV_PATH, parse_dates=['Date'])
+headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0"}
+df = pd.read_csv(CSV_PATH, parse_dates=['Date'], storage_options=headers)
 # df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
-# df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'])
+df = df.fillna(df.mean())
 
+print(f'df.shape: {df.shape}')
+print(f'df.descrive(): {df.describe()}')
+print(f'df.head(): {df.head()}')
+print(f'df.tail(): {df.tail()}')
+
+# df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
+#                       storage_options=headers)
+# df_coin = df_coin.drop(columns=['date'])
+# df_coin = df_coin.fillna(df_coin.mean())
+# df_coin = df_coin.drop(df_coin.index[:2085])
+#
+# print(f'df_coin.shape: {df_coin.shape}')
+# print(f'df_coin.descrive(): {df_coin.describe()}')
+# print(f'df_coin.head(): {df_coin.head()}')
+# print(f'df_coin.tail(): {df_coin.tail()}')
+#
+# # join dataframes
+# df = pd.concat([df, df_coin], axis=1, join='inner')
 
 # Put the month column in the index.
 df = df.set_index("Date")
@@ -72,8 +92,10 @@ for m in range(10, 210, 10):
 # fill nan values
 df = df.fillna(df.mean())
 
-print(df.head())
-print(df.tail())
+print(f'df.shape: {df.shape}')
+print(f'df.descrive(): {df.describe()}')
+print(f'df.head(): {df.head()}')
+print(f'df.tail(): {df.tail()}')
 
 stock_data = df
 
@@ -115,11 +137,15 @@ print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
 
 model = Sequential()
-model.add(
-    Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
+model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
+                 strides=1, padding="causal",
+                 activation="relu",
+                 input_shape=(x.shape[1], N_FEATURES)))
+# model.add(
+#     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
 # model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-# model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
 # model.add(Dropout(DROPOUT))
 model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
 model.add(Dropout(DROPOUT))
