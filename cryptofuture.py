@@ -32,10 +32,10 @@ CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD
 EPOCHS = 1000
 DROPOUT = 0.1
 BATCH_SIZE = 128
-LOOK_BACK = 60
-UNITS = LOOK_BACK * 4
-TEST_SPLIT = .3
-PREDICTION_RANGE = LOOK_BACK
+LOOK_BACK = 90
+UNITS = LOOK_BACK * 1
+TEST_SPLIT = .1
+PREDICTION_RANGE = LOOK_BACK * 2
 
 
 def create_model_callbacks() -> []:
@@ -147,6 +147,7 @@ model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
 #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
 # model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
+model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
 model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
 # model.add(Dropout(DROPOUT))
 model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
@@ -160,6 +161,8 @@ model.compile(optimizer='adam', loss='mean_squared_error')
 #               optimizer=optimizer,
 #               metrics=["mae"])
 # model.summary()
+
+# model = tensorflow.keras.models.load_model("weights.h5")
 
 # history = model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
 #                     validation_split=0.1)
