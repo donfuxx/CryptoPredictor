@@ -32,9 +32,9 @@ CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD
 EPOCHS = 1000
 DROPOUT = 0.1
 BATCH_SIZE = 128
-LOOK_BACK = 50
-UNITS = LOOK_BACK * 1
-TEST_SPLIT = .8
+LOOK_BACK = 60
+UNITS = LOOK_BACK * 4
+TEST_SPLIT = .3
 PREDICTION_RANGE = LOOK_BACK
 
 
@@ -63,19 +63,20 @@ print(f'df.descrive(): {df.describe()}')
 print(f'df.head(): {df.head()}')
 print(f'df.tail(): {df.tail()}')
 
+df_coin = pd.read_csv('data/btc.csv', parse_dates=['date'])
 # df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
 #                       storage_options=headers)
-# df_coin = df_coin.drop(columns=['date'])
-# df_coin = df_coin.fillna(df_coin.mean())
-# df_coin = df_coin.drop(df_coin.index[:2085])
-#
-# print(f'df_coin.shape: {df_coin.shape}')
-# print(f'df_coin.descrive(): {df_coin.describe()}')
-# print(f'df_coin.head(): {df_coin.head()}')
-# print(f'df_coin.tail(): {df_coin.tail()}')
-#
-# # join dataframes
-# df = pd.concat([df, df_coin], axis=1, join='inner')
+df_coin = df_coin.drop(columns=['date'])
+df_coin = df_coin.fillna(df_coin.mean())
+df_coin = df_coin.drop(df_coin.index[:2085])
+
+print(f'df_coin.shape: {df_coin.shape}')
+print(f'df_coin.descrive(): {df_coin.describe()}')
+print(f'df_coin.head(): {df_coin.head()}')
+print(f'df_coin.tail(): {df_coin.tail()}')
+
+# join dataframes
+df = pd.concat([df, df_coin], axis=1, join='inner')
 
 # Put the month column in the index.
 df = df.set_index("Date")
@@ -131,6 +132,7 @@ print(f'y.shape: {y.shape}')
 print(f'x_train.shape: {x_train.shape}')
 
 x_test = x[test_size + LOOK_BACK:]
+print(f'x_test: {x_test}')
 x = x.reshape(x.shape[0], LOOK_BACK, N_FEATURES)
 x_test = x_test.reshape(x_test.shape[0], LOOK_BACK, N_FEATURES)
 print(f'x.shape: {x.shape}')
