@@ -35,7 +35,7 @@ DROPOUT = 0.1
 BATCH_SIZE = 128
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
-TEST_SPLIT = .1
+TEST_SPLIT = .6
 PREDICTION_RANGE = LOOK_BACK * 2
 
 
@@ -59,17 +59,22 @@ def moving_average(array: [], w: int) -> []:
     return np.concatenate((np.full(w - 1, array[w]), np.convolve(array, np.ones(w), 'valid') / w))
 
 
+def df_info(name, data):
+    print(f'{name}.shape: {data.shape}')
+    print(f'{name}.describe(): {data.describe()}')
+    print(f'{name}.head(): {data.head()}')
+    print(f'{name}.tail(): {data.tail()}')
+
+
 # download data
 headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0"}
-df = pd.read_csv(CSV_PATH, parse_dates=['Date'], storage_options=headers)
+# df = pd.read_csv(CSV_PATH, parse_dates=['Date'], storage_options=headers)
+df = pd.read_csv("https://www.coingecko.com/price_charts/export/1/usd.csv", parse_dates=['snapped_at'], storage_options=headers)
 df.to_csv('data/btc_price.csv')
 # df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df = df.fillna(df.mean())
 
-print(f'df.shape: {df.shape}')
-print(f'df.descrive(): {df.describe()}')
-print(f'df.head(): {df.head()}')
-print(f'df.tail(): {df.tail()}')
+df_info('df', df)
 
 df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
 # df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
@@ -77,21 +82,19 @@ df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
 df_coin.to_csv('data/btc_metrics.csv')
 df_coin = df_coin.drop(columns=['date'])
 df_coin = df_coin.fillna(df_coin.mean())
-df_coin = df_coin.drop(df_coin.index[:2085])
+# df_coin = df_coin.drop(df_coin.index[:2085])
+df_coin = df_coin.drop(df_coin.index[:1578])
 
-print(f'df_coin.shape: {df_coin.shape}')
-print(f'df_coin.descrive(): {df_coin.describe()}')
-print(f'df_coin.head(): {df_coin.head()}')
-print(f'df_coin.tail(): {df_coin.tail()}')
+df_info('df_coin', df_coin)
 
 # join dataframes
 df = pd.concat([df, df_coin], axis=1, join='inner')
 
 # Put the month column in the index.
-df = df.set_index("Date")
+df = df.set_index("snapped_at")
 
 # add moving averages
-open_values = df['Open'].to_numpy()
+open_values = df['price'].to_numpy()
 print(f'open_values: {open_values}')
 
 for m in range(10, 210, 10):
@@ -102,10 +105,7 @@ for m in range(10, 210, 10):
 # fill nan values
 df = df.fillna(df.mean())
 
-print(f'df.shape: {df.shape}')
-print(f'df.descrive(): {df.describe()}')
-print(f'df.head(): {df.head()}')
-print(f'df.tail(): {df.tail()}')
+df_info('df', df)
 
 stock_data = df
 
@@ -148,23 +148,23 @@ print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
 
 model = Sequential()
-# model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
-#                  strides=1, padding="causal",
-#                  activation="relu",
-#                  input_shape=(x.shape[1], N_FEATURES)))
+model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
+                 strides=1, padding="causal",
+                 activation="relu",
+                 input_shape=(x.shape[1], N_FEATURES)))
 # model.add(
 #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
-model.add(
-    Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
+# model.add(
+#     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
 # model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
+model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+# model.add(Dropout(DROPOUT))
+model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+# model.add(Dropout(DROPOUT))
 # model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
 # model.add(Dropout(DROPOUT))
-# model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
-# model.add(Dropout(DROPOUT))
-# model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
-# model.add(Dropout(DROPOUT))
-# model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
+model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
 model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS))
 model.add(Dense(units=N_FEATURES))
@@ -176,6 +176,7 @@ model.compile(optimizer='adam', loss='mean_squared_error')
 #               metrics=["mae"])
 # model.summary()
 
+# model.load_weights(filepath="weights.h5")
 # model = tensorflow.keras.models.load_model("weights.h5")
 
 # history = model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
@@ -185,6 +186,10 @@ history = model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create
                     )
 
 model.load_weights(filepath="weights.h5")
+
+history = model.fit(x, y, epochs=10, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
+                    # validation_split=0.05
+                    )
 
 y_predict = model.predict(x_test)
 # print(x_test)
