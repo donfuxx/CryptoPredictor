@@ -18,6 +18,7 @@ from tensorflow.keras.layers import LSTM
 from tensorflow.keras.losses import Huber
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import SGD
+from tensorflow.keras import Model
 
 rcParams.update({'figure.autolayout': True})
 
@@ -33,9 +34,15 @@ EPOCHS = 1000
 DROPOUT = 0.1
 BATCH_SIZE = 128
 LOOK_BACK = 60
-UNITS = LOOK_BACK * 2
+UNITS = LOOK_BACK * 1
 TEST_SPLIT = .1
 PREDICTION_RANGE = LOOK_BACK * 2
+
+
+def summary(for_model: Model) -> str:
+    summary_data = []
+    for_model.summary(print_fn=lambda x: summary_data.append(x))
+    return '\n'.join(summary_data)
 
 
 def create_model_callbacks() -> []:
@@ -55,6 +62,7 @@ def moving_average(array: [], w: int) -> []:
 # download data
 headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0"}
 df = pd.read_csv(CSV_PATH, parse_dates=['Date'], storage_options=headers)
+df.to_csv('data/btc_price.csv')
 # df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df = df.fillna(df.mean())
 
@@ -63,9 +71,10 @@ print(f'df.descrive(): {df.describe()}')
 print(f'df.head(): {df.head()}')
 print(f'df.tail(): {df.tail()}')
 
-df_coin = pd.read_csv('data/btc.csv', parse_dates=['date'])
+df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
 # df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
 #                       storage_options=headers)
+df_coin.to_csv('data/btc_metrics.csv')
 df_coin = df_coin.drop(columns=['date'])
 df_coin = df_coin.fillna(df_coin.mean())
 df_coin = df_coin.drop(df_coin.index[:2085])
@@ -139,18 +148,23 @@ print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
 
 model = Sequential()
-model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
-                 strides=1, padding="causal",
-                 activation="relu",
-                 input_shape=(x.shape[1], N_FEATURES)))
+# model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
+#                  strides=1, padding="causal",
+#                  activation="relu",
+#                  input_shape=(x.shape[1], N_FEATURES)))
 # model.add(
 #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
+model.add(
+    Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
 # model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
-model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+# model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
 # model.add(Dropout(DROPOUT))
-model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
+# model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+# model.add(Dropout(DROPOUT))
+# model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+# model.add(Dropout(DROPOUT))
+# model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
 model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS))
 model.add(Dense(units=N_FEATURES))
@@ -169,6 +183,8 @@ model.compile(optimizer='adam', loss='mean_squared_error')
 history = model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
                     # validation_split=0.05
                     )
+
+model.load_weights(filepath="weights.h5")
 
 y_predict = model.predict(x_test)
 # print(x_test)
@@ -204,10 +220,14 @@ plt.figure(figsize=(20, 8))
 plt.plot(input_data[(2 * LOOK_BACK) + test_size + 1:, 1], color='green')
 # plt.plot(predicted_value[-lookback:], color='red')
 plt.plot(y_predict, color='red')
+plt.title(
+    f'{CURRENCY} Price Prediction (loss: {history.history["loss"][-1]}, epochs: {EPOCHS}, look back: {LOOK_BACK}, features: {N_FEATURES})')
 plt.legend(['Actual', 'Prediction'], loc='best', fontsize='xx-large')
-plt.title("Opening price of stocks sold")
 plt.xlabel("Time (latest-> oldest)")
-plt.ylabel("Stock Opening Price")
+plt.ylabel("Opening Price")
+plt.figtext(0.7, 0.05, "NFA!", ha="center", fontsize=10, bbox={"facecolor": "orange", "alpha": 0.5, "pad": 5})
+plt.annotate(summary(model), (0, 0), (0, -40), xycoords='axes fraction', textcoords='offset points', va='top')
+plt.annotate(model.optimizer, (0, 0), (600, -40), xycoords='axes fraction', textcoords='offset points', va='top')
 
 plt.savefig(
     f'plots/{CURRENCY}_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{history.history["loss"][-1]}.png')
