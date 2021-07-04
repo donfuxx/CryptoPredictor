@@ -38,6 +38,8 @@ UNITS = LOOK_BACK * 1
 TEST_SPLIT = .7
 VALIDATION_SPLIT = .05
 PREDICTION_RANGE = 8
+
+
 # PREDICTION_RANGE = LOOK_BACK * 2
 
 
@@ -152,23 +154,23 @@ print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
 
 model = Sequential()
-# model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
-#                  strides=1, padding="causal",
-#                  activation="relu",
-#                  input_shape=(x.shape[1], N_FEATURES)))
+model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
+                 strides=1, padding="causal",
+                 activation="relu",
+                 input_shape=(x.shape[1], N_FEATURES)))
 # model.add(
 #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
-model.add(
-    Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
-# model.add(Dropout(DROPOUT))
+# model.add(
+#     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
+model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
+model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+model.add(Dropout(DROPOUT))
+model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+model.add(Dropout(DROPOUT))
 # model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
 # model.add(Dropout(DROPOUT))
-# model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
-# model.add(Dropout(DROPOUT))
-# model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
-# model.add(Dropout(DROPOUT))
-# model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
+model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
 model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS))
 model.add(Dense(units=N_FEATURES))
@@ -191,14 +193,12 @@ history = model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create
 
 model.load_weights(filepath="weights.h5")
 
-# history = model.fit(x, y, epochs=10, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
-#                     # validation_split=VALIDATION_SPLIT
-#                     )
+history = model.fit(x, y, epochs=10, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
+                    validation_split=VALIDATION_SPLIT
+                    )
 
 y_predict = model.predict(x_test)
-# print(x_test)
 print(len(x_test))
-# print(predicted_value)
 print(len(y_predict))
 
 
@@ -223,7 +223,14 @@ for prediction_steps in range(PREDICTION_RANGE):
     y_predict = np.append(y_predict, y_predict_new, axis=0)
     # print(f'predicted values: {y_predict}')
 
+# Inverse scale value
+y_predict = scaler.inverse_transform(y_predict)
 y_predict = y_predict[:, 1]
+input_data = scaler.inverse_transform(input_data)
+print(f'y_predict: {y_predict}')
+print(f'input_data: {input_data}')
+
+# plot graph
 plt.figure(figsize=(20, 8))
 # plt.plot(input_data[lookback + test_size:test_size + (2 * lookback), 1], color='green')
 plt.plot(input_data[(2 * LOOK_BACK) + test_size + 1:, 1], color='green')
@@ -231,7 +238,6 @@ plt.plot(input_data[(2 * LOOK_BACK) + test_size + 1:, 1], color='green')
 plt.plot(y_predict, color='red')
 plt.axvline(x=len(x_test) - 1, color='blue', label='Prediction split')
 plt.axvline(x=len(x_test) - 1 - VALIDATION_SPLIT * len(x), color='blue', label='Validation split')
-
 plt.title(
     f'{CURRENCY} Price Prediction (loss: {history.history["loss"][-1]}, epochs: {EPOCHS}, look back: {LOOK_BACK}, features: {N_FEATURES})')
 plt.legend(['Actual', 'Prediction'], loc='best', fontsize='xx-large')
