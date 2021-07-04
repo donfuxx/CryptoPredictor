@@ -32,16 +32,18 @@ CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD
 # N_FEATURES = 26
 EPOCHS = 1000
 DROPOUT = 0.1
-BATCH_SIZE = 128
+BATCH_SIZE = 32
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
-TEST_SPLIT = .6
-PREDICTION_RANGE = LOOK_BACK * 2
+TEST_SPLIT = .7
+VALIDATION_SPLIT = .05
+PREDICTION_RANGE = 8
+# PREDICTION_RANGE = LOOK_BACK * 2
 
 
 def summary(for_model: Model) -> str:
     summary_data = []
-    for_model.summary(print_fn=lambda x: summary_data.append(x))
+    for_model.summary(print_fn=lambda line: summary_data.append(line))
     return '\n'.join(summary_data)
 
 
@@ -59,17 +61,19 @@ def moving_average(array: [], w: int) -> []:
     return np.concatenate((np.full(w - 1, array[w]), np.convolve(array, np.ones(w), 'valid') / w))
 
 
-def df_info(name, data):
-    print(f'{name}.shape: {data.shape}')
+def df_info(name: str, data):
+    print(f'\n{name}.shape: {data.shape}')
     print(f'{name}.describe(): {data.describe()}')
     print(f'{name}.head(): {data.head()}')
     print(f'{name}.tail(): {data.tail()}')
+    print('\n')
 
 
 # download data
 headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0"}
 # df = pd.read_csv(CSV_PATH, parse_dates=['Date'], storage_options=headers)
-df = pd.read_csv("https://www.coingecko.com/price_charts/export/1/usd.csv", parse_dates=['snapped_at'], storage_options=headers)
+df = pd.read_csv("https://www.coingecko.com/price_charts/export/1/usd.csv", parse_dates=['snapped_at'],
+                 storage_options=headers)
 df.to_csv('data/btc_price.csv')
 # df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df = df.fillna(df.mean())
@@ -79,11 +83,11 @@ df_info('df', df)
 df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
 # df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
 #                       storage_options=headers)
-df_coin.to_csv('data/btc_metrics.csv')
+# df_coin.to_csv('data/btc_metrics.csv')
 df_coin = df_coin.drop(columns=['date'])
 df_coin = df_coin.fillna(df_coin.mean())
 # df_coin = df_coin.drop(df_coin.index[:2085])
-df_coin = df_coin.drop(df_coin.index[:1578])
+df_coin = df_coin.drop(df_coin.index[:1577])
 
 df_info('df_coin', df_coin)
 
@@ -148,23 +152,23 @@ print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
 
 model = Sequential()
-model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
-                 strides=1, padding="causal",
-                 activation="relu",
-                 input_shape=(x.shape[1], N_FEATURES)))
+# model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
+#                  strides=1, padding="causal",
+#                  activation="relu",
+#                  input_shape=(x.shape[1], N_FEATURES)))
 # model.add(
 #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
-# model.add(
-#     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
+model.add(
+    Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
 # model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+# model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
 # model.add(Dropout(DROPOUT))
-model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+# model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
 # model.add(Dropout(DROPOUT))
 # model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
 # model.add(Dropout(DROPOUT))
-model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
+# model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
 model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS))
 model.add(Dense(units=N_FEATURES))
@@ -182,14 +186,14 @@ model.compile(optimizer='adam', loss='mean_squared_error')
 # history = model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
 #                     validation_split=0.1)
 history = model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
-                    # validation_split=0.05
+                    validation_split=VALIDATION_SPLIT
                     )
 
 model.load_weights(filepath="weights.h5")
 
-history = model.fit(x, y, epochs=10, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
-                    # validation_split=0.05
-                    )
+# history = model.fit(x, y, epochs=10, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
+#                     # validation_split=VALIDATION_SPLIT
+#                     )
 
 y_predict = model.predict(x_test)
 # print(x_test)
@@ -225,6 +229,9 @@ plt.figure(figsize=(20, 8))
 plt.plot(input_data[(2 * LOOK_BACK) + test_size + 1:, 1], color='green')
 # plt.plot(predicted_value[-lookback:], color='red')
 plt.plot(y_predict, color='red')
+plt.axvline(x=len(x_test) - 1, color='blue', label='Prediction split')
+plt.axvline(x=len(x_test) - 1 - VALIDATION_SPLIT * len(x), color='blue', label='Validation split')
+
 plt.title(
     f'{CURRENCY} Price Prediction (loss: {history.history["loss"][-1]}, epochs: {EPOCHS}, look back: {LOOK_BACK}, features: {N_FEATURES})')
 plt.legend(['Actual', 'Prediction'], loc='best', fontsize='xx-large')
