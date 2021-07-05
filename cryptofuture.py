@@ -27,9 +27,6 @@ warnings.filterwarnings("ignore")
 tensorflow.keras.backend.clear_session()
 
 # Configuration
-CURRENCY = "BTC"
-CSV_PATH = f'https://query1.finance.yahoo.com/v7/finance/download/{CURRENCY}-USD?period1=1113417600&period2=7622851200&interval=1d&events=history&includeAdjustedClose=true'
-# N_FEATURES = 26
 EPOCHS = 1000
 DROPOUT = 0.1
 BATCH_SIZE = 32
@@ -38,9 +35,6 @@ UNITS = LOOK_BACK * 1
 TEST_SPLIT = .7
 VALIDATION_SPLIT = .05
 PREDICTION_RANGE = 8
-
-
-# PREDICTION_RANGE = LOOK_BACK * 2
 
 
 def summary(for_model: Model) -> str:
@@ -71,32 +65,29 @@ def df_info(name: str, data):
     print('\n')
 
 
-# download data
+# Download data
 headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0"}
-# df = pd.read_csv(CSV_PATH, parse_dates=['Date'], storage_options=headers)
 df = pd.read_csv("https://www.coingecko.com/price_charts/export/1/usd.csv", parse_dates=['snapped_at'],
                  storage_options=headers)
 df.to_csv('data/btc_price.csv')
-# df = df.drop(columns=['High', 'Low', 'Close', 'Adj Close', 'Volume'])
 df = df.fillna(df.mean())
 
 df_info('df', df)
 
-df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
-# df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
-#                       storage_options=headers)
-# df_coin.to_csv('data/btc_metrics.csv')
+# df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
+df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
+                      storage_options=headers)
+df_coin.to_csv('data/btc_metrics.csv')
 df_coin = df_coin.drop(columns=['date'])
 df_coin = df_coin.fillna(df_coin.mean())
-# df_coin = df_coin.drop(df_coin.index[:2085])
 df_coin = df_coin.drop(df_coin.index[:1577])
 
 df_info('df_coin', df_coin)
 
-# join dataframes
+# Join dataframes
 df = pd.concat([df, df_coin], axis=1, join='inner')
 
-# Put the month column in the index.
+# Put the date column in the index.
 df = df.set_index("snapped_at")
 
 # add moving averages
@@ -108,15 +99,13 @@ for m in range(10, 210, 10):
     print(f'ma_{m}: {ma}')
     df[f'ma_{m}'] = ma
 
-# fill nan values
+# Fill nan values
 df = df.fillna(df.mean())
 
 df_info('df', df)
 
-stock_data = df
-
 # input_feature = stock_data
-input_feature = stock_data.iloc[:, :].values
+input_feature = df.iloc[:, :].values
 N_FEATURES = len(input_feature[0])
 # input_feature = stock_data.iloc[:,
 #                 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]].values
@@ -124,12 +113,11 @@ input_data = input_feature
 
 scaler = MinMaxScaler(feature_range=(0, 1))
 input_data[:, 0:N_FEATURES] = scaler.fit_transform(input_feature[:, :])
-# add another model to predict volumes?
 
-test_size = int(TEST_SPLIT * len(stock_data))
+test_size = int(TEST_SPLIT * len(df))
 x = []
 y = []
-for i in range(len(stock_data) - LOOK_BACK - 1):
+for i in range(len(df) - LOOK_BACK - 1):
     t = []
     for j in range(0, LOOK_BACK):
         t.append(input_data[[(i + j)], :])
@@ -231,16 +219,14 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
 # print(f'y_predict: {y_predict}')
 # print(f'input_data: {input_data}')
 
-# plot graph
+# Plot graph
 plt.figure(figsize=(20, 8))
-# plt.plot(input_data[lookback + test_size:test_size + (2 * lookback), 1], color='green')
 plt.plot(input_data[(2 * LOOK_BACK) + test_size + 1:, 1], color='green')
-# plt.plot(predicted_value[-lookback:], color='red')
 plt.plot(y_predict, color='red')
 plt.axvline(x=len(x_test) - 1, color='blue', label='Prediction split')
 plt.axvline(x=len(x_test) - 1 - VALIDATION_SPLIT * len(x), color='blue', label='Validation split')
 plt.title(
-    f'{CURRENCY} Price Prediction (loss: {history.history["loss"][-1]}, epochs: {EPOCHS}, look back: {LOOK_BACK}, features: {N_FEATURES})')
+    f'BTC Price Prediction (loss: {history.history["loss"][-1]}, epochs: {EPOCHS}, look back: {LOOK_BACK}, features: {N_FEATURES})')
 plt.legend(['Actual', 'Prediction'], loc='best', fontsize='xx-large')
 plt.xlabel("Time (latest-> oldest)")
 plt.ylabel("Opening Price")
@@ -249,5 +235,5 @@ plt.annotate(summary(model), (0, 0), (0, -40), xycoords='axes fraction', textcoo
 plt.annotate(model.optimizer, (0, 0), (600, -40), xycoords='axes fraction', textcoords='offset points', va='top')
 
 plt.savefig(
-    f'plots/{CURRENCY}_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{history.history["loss"][-1]}.png')
+    f'plots/BTC_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{history.history["loss"][-1]}.png')
 plt.show()
