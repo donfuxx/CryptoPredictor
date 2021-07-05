@@ -19,6 +19,7 @@ from tensorflow.keras.losses import Huber
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras import Model
+from tensorflow.keras.callbacks import History
 
 rcParams.update({'figure.autolayout': True})
 
@@ -27,7 +28,7 @@ warnings.filterwarnings("ignore")
 tensorflow.keras.backend.clear_session()
 
 # Configuration
-EPOCHS = 1000
+EPOCHS = 10
 DROPOUT = 0.1
 BATCH_SIZE = 32
 LOOK_BACK = 60
@@ -63,6 +64,53 @@ def df_info(name: str, data):
     print(f'{name}.head(): {data.head()}')
     print(f'{name}.tail(): {data.tail()}')
     print('\n')
+
+
+def build_model(n_output: int) -> Model:
+    new_model = Sequential()
+    new_model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
+                         strides=1, padding="causal",
+                         activation="relu",
+                         input_shape=(x.shape[1], N_FEATURES)))
+    # new_model.add(
+    #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
+    # new_model.add(
+    #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
+    # new_model.add(Dropout(DROPOUT))
+    # new_model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
+    new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+    # new_model.add(Dropout(DROPOUT))
+    new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+    # new_model.add(Dropout(DROPOUT))
+    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+    # new_model.add(Dropout(DROPOUT))
+    new_model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
+    new_model.add(Dropout(DROPOUT))
+    # new_model.add(LSTM(units=UNITS))
+    new_model.add(Dense(units=n_output))
+    # new_model.add(Dense(units=N_FEATURES))
+
+    new_model.compile(optimizer='adam', loss='mean_squared_error')
+    # optimizer = SGD(lr=1e-1, momentum=0.9)
+    # new_model.compile(loss=Huber(),
+    #               optimizer=optimizer,
+    #               metrics=["mae"])
+    return new_model
+
+
+def fit_model(new_model: Model) -> History:
+    # history = new_model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
+    #                     validation_split=0.1)
+    new_history = new_model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
+                                validation_split=VALIDATION_SPLIT
+                                )
+
+    new_model.load_weights(filepath="weights.h5")
+
+    # history = new_model.fit(x, y, epochs=10, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
+    #                     validation_split=VALIDATION_SPLIT
+    #                     )
+    return new_history
 
 
 # Download data
@@ -117,14 +165,16 @@ input_data[:, 0:N_FEATURES] = scaler.fit_transform(input_feature[:, :])
 test_size = int(TEST_SPLIT * len(df))
 x = []
 y = []
+y_multi = []
 for i in range(len(df) - LOOK_BACK - 1):
     t = []
     for j in range(0, LOOK_BACK):
         t.append(input_data[[(i + j)], :])
     x.append(t)
     y.append(input_data[i + LOOK_BACK, 1])
+    y_multi.append(input_data[i + LOOK_BACK, :])
 
-x, y = np.array(x), np.array(y)
+x, y, y_multi = np.array(x), np.array(y), np.array(y_multi)
 
 y_train = y[:test_size + LOOK_BACK]
 x_train = x[:test_size + LOOK_BACK]
@@ -141,54 +191,22 @@ x_test = x_test.reshape(x_test.shape[0], LOOK_BACK, N_FEATURES)
 print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
 
-model = Sequential()
-model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
-                 strides=1, padding="causal",
-                 activation="relu",
-                 input_shape=(x.shape[1], N_FEATURES)))
-# model.add(
-#     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
-# model.add(
-#     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
-# model.add(Dropout(DROPOUT))
-# model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
-# model.add(Dropout(DROPOUT))
-model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
-# model.add(Dropout(DROPOUT))
-# model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
-# model.add(Dropout(DROPOUT))
-model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
-model.add(Dropout(DROPOUT))
-# model.add(LSTM(units=UNITS))
-model.add(Dense(units=1))
-# model.add(Dense(units=N_FEATURES))
-
-model.compile(optimizer='adam', loss='mean_squared_error')
-# optimizer = SGD(lr=1e-1, momentum=0.9)
-# model.compile(loss=Huber(),
-#               optimizer=optimizer,
-#               metrics=["mae"])
-# model.summary()
+model = build_model(1)
 
 # model.load_weights(filepath="weights.h5")
 # model = tensorflow.keras.models.load_model("weights.h5")
 
-# history = model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
-#                     validation_split=0.1)
-history = model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
-                    validation_split=VALIDATION_SPLIT
-                    )
+history = fit_model(model)
 
-model.load_weights(filepath="weights.h5")
-
-# history = model.fit(x, y, epochs=10, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
-#                     validation_split=VALIDATION_SPLIT
-#                     )
+model_multi = build_model(N_FEATURES)
+history_multi = fit_model(model_multi)
 
 y_predict = model.predict(x_test)
 print(len(x_test))
 print(len(y_predict))
+
+y_predict_multi = model_multi.predict(x_test)
+y_predict_multi = y_predict_multi[:, 1]
 
 
 def get_updated_x(x_last: [], last_prediction: []) -> []:
@@ -223,11 +241,12 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
 plt.figure(figsize=(20, 8))
 plt.plot(input_data[(2 * LOOK_BACK) + test_size + 1:, 1], color='green')
 plt.plot(y_predict, color='red')
+plt.plot(y_predict_multi, color='orange')
 plt.axvline(x=len(x_test) - 1, color='blue', label='Prediction split')
 plt.axvline(x=len(x_test) - 1 - VALIDATION_SPLIT * len(x), color='blue', label='Validation split')
 plt.title(
     f'BTC Price Prediction (loss: {history.history["loss"][-1]}, epochs: {EPOCHS}, look back: {LOOK_BACK}, features: {N_FEATURES})')
-plt.legend(['Actual', 'Prediction'], loc='best', fontsize='xx-large')
+plt.legend(['Actual', 'Prediction', 'Prediction multi'], loc='best', fontsize='xx-large')
 plt.xlabel("Time (latest-> oldest)")
 plt.ylabel("Opening Price")
 plt.figtext(0.7, 0.05, "NFA!", ha="center", fontsize=10, bbox={"facecolor": "orange", "alpha": 0.5, "pad": 5})
