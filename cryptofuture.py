@@ -134,7 +134,7 @@ for i in range(len(stock_data) - LOOK_BACK - 1):
     for j in range(0, LOOK_BACK):
         t.append(input_data[[(i + j)], :])
     x.append(t)
-    y.append(input_data[i + LOOK_BACK, :])
+    y.append(input_data[i + LOOK_BACK, 1])
 
 x, y = np.array(x), np.array(y)
 
@@ -162,18 +162,19 @@ model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
 #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
 # model.add(
 #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
-model.add(Dropout(DROPOUT))
+# model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
 model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
-model.add(Dropout(DROPOUT))
+# model.add(Dropout(DROPOUT))
 model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
-model.add(Dropout(DROPOUT))
+# model.add(Dropout(DROPOUT))
 # model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
 # model.add(Dropout(DROPOUT))
 model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
 model.add(Dropout(DROPOUT))
 # model.add(LSTM(units=UNITS))
-model.add(Dense(units=N_FEATURES))
+model.add(Dense(units=1))
+# model.add(Dense(units=N_FEATURES))
 
 model.compile(optimizer='adam', loss='mean_squared_error')
 # optimizer = SGD(lr=1e-1, momentum=0.9)
@@ -193,9 +194,9 @@ history = model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create
 
 model.load_weights(filepath="weights.h5")
 
-history = model.fit(x, y, epochs=10, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
-                    validation_split=VALIDATION_SPLIT
-                    )
+# history = model.fit(x, y, epochs=10, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
+#                     validation_split=VALIDATION_SPLIT
+#                     )
 
 y_predict = model.predict(x_test)
 print(len(x_test))
@@ -213,22 +214,22 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
     return np.expand_dims(x_last, axis=0)
 
 
-for prediction_steps in range(PREDICTION_RANGE):
-    X_predict = get_updated_x(x[-1], y_predict[-1])
-    y_predict_new = model.predict(X_predict)
-    print(y_predict_new[0, 1])
-    # print(f'future_prediction.shape: {y_predict_new.shape}')
-    x = np.append(x, X_predict, axis=0)
-
-    y_predict = np.append(y_predict, y_predict_new, axis=0)
-    # print(f'predicted values: {y_predict}')
+# for prediction_steps in range(PREDICTION_RANGE):
+#     X_predict = get_updated_x(x[-1], y_predict[-1])
+#     y_predict_new = model.predict(X_predict)
+#     print(y_predict_new[0, 1])
+#     # print(f'future_prediction.shape: {y_predict_new.shape}')
+#     x = np.append(x, X_predict, axis=0)
+#
+#     y_predict = np.append(y_predict, y_predict_new, axis=0)
+#     # print(f'predicted values: {y_predict}')
 
 # Inverse scale value
-y_predict = scaler.inverse_transform(y_predict)
-y_predict = y_predict[:, 1]
-input_data = scaler.inverse_transform(input_data)
-print(f'y_predict: {y_predict}')
-print(f'input_data: {input_data}')
+# y_predict = scaler.inverse_transform(y_predict)
+# y_predict = y_predict[:, 1]
+# input_data = scaler.inverse_transform(input_data)
+# print(f'y_predict: {y_predict}')
+# print(f'input_data: {input_data}')
 
 # plot graph
 plt.figure(figsize=(20, 8))
