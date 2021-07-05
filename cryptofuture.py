@@ -206,7 +206,6 @@ print(len(x_test))
 print(len(y_predict))
 
 y_predict_multi = model_multi.predict(x_test)
-y_predict_multi = y_predict_multi[:, 1]
 
 
 def get_updated_x(x_last: [], last_prediction: []) -> []:
@@ -220,22 +219,24 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
     return np.expand_dims(x_last, axis=0)
 
 
-# for prediction_steps in range(PREDICTION_RANGE):
-#     X_predict = get_updated_x(x[-1], y_predict[-1])
-#     y_predict_new = model.predict(X_predict)
-#     print(y_predict_new[0, 1])
-#     # print(f'future_prediction.shape: {y_predict_new.shape}')
-#     x = np.append(x, X_predict, axis=0)
-#
-#     y_predict = np.append(y_predict, y_predict_new, axis=0)
-#     # print(f'predicted values: {y_predict}')
+for prediction_steps in range(PREDICTION_RANGE):
+    x_predict_multi = get_updated_x(x[-1], y_predict_multi[-1])
+    y_predict_new = model_multi.predict(x_predict_multi)
+    print(y_predict_new[0, 1])
+    # print(f'future_prediction.shape: {y_predict_new.shape}')
+    x = np.append(x, x_predict_multi, axis=0)
 
-# Inverse scale value
+    y_predict_multi = np.append(y_predict_multi, y_predict_new, axis=0)
+    # print(f'predicted values: {y_predict}')
+
+# Inverse scale value //FIXME inv scaling
 # y_predict = scaler.inverse_transform(y_predict)
 # y_predict = y_predict[:, 1]
 # input_data = scaler.inverse_transform(input_data)
 # print(f'y_predict: {y_predict}')
 # print(f'input_data: {input_data}')
+
+y_predict_multi = y_predict_multi[:, 1]
 
 # Plot graph
 plt.figure(figsize=(20, 8))
