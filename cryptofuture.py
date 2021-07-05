@@ -35,7 +35,7 @@ LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
 TEST_SPLIT = .7
 VALIDATION_SPLIT = .05
-PREDICTION_RANGE = 8
+PREDICTION_RANGE = LOOK_BACK
 
 
 def summary(for_model: Model) -> str:
@@ -107,9 +107,9 @@ def fit_model(new_model: Model) -> History:
 
     new_model.load_weights(filepath="weights.h5")
 
-    # history = new_model.fit(x, y, epochs=10, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
-    #                     validation_split=VALIDATION_SPLIT
-    #                     )
+    new_history = new_model.fit(x, y, epochs=10, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
+                        validation_split=VALIDATION_SPLIT
+                        )
     return new_history
 
 
@@ -122,10 +122,10 @@ df = df.fillna(df.mean())
 
 df_info('df', df)
 
-# df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
-df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
-                      storage_options=headers)
-df_coin.to_csv('data/btc_metrics.csv')
+df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
+# df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
+#                       storage_options=headers)
+# df_coin.to_csv('data/btc_metrics.csv')
 df_coin = df_coin.drop(columns=['date'])
 df_coin = df_coin.fillna(df_coin.mean())
 df_coin = df_coin.drop(df_coin.index[:1577])
@@ -192,13 +192,10 @@ print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
 
 model = build_model(1)
-
-# model.load_weights(filepath="weights.h5")
-# model = tensorflow.keras.models.load_model("weights.h5")
+model_multi = build_model(N_FEATURES)
 
 history = fit_model(model)
-
-model_multi = build_model(N_FEATURES)
+# tensorflow.keras.backend.clear_session()
 history_multi = fit_model(model_multi)
 
 y_predict = model.predict(x_test)
