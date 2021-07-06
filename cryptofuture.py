@@ -33,7 +33,6 @@ DROPOUT = 0.1
 BATCH_SIZE = 512
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
-TEST_SPLIT = .7
 VALIDATION_SPLIT = .01
 PREDICTION_RANGE = LOOK_BACK
 
@@ -107,10 +106,21 @@ def fit_model(new_model: Model, split: float = 0) -> History:
 
     new_model.load_weights(filepath="weights.h5")
 
-    new_history = new_model.fit(x, y, epochs=10, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
+    new_history = new_model.fit(x, y, epochs=1, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
                         validation_split=split
                         )
     return new_history
+
+
+def get_updated_x(x_last: [], last_prediction: []) -> []:
+    # print(f'x_last input values: {x_last[-1]}')
+
+    x_last = np.append(x_last[1:], last_prediction)
+    x_last = x_last.reshape(LOOK_BACK, N_FEATURES)
+    # print(f'x_last new: {X_last}')
+    # print(f'x_last input values new: {x_last[-1]}')
+
+    return np.expand_dims(x_last, axis=0)
 
 
 # Download data
@@ -162,7 +172,6 @@ input_data = input_feature
 scaler = MinMaxScaler(feature_range=(0, 1))
 input_data[:, 0:N_FEATURES] = scaler.fit_transform(input_feature[:, :])
 
-test_size = int(TEST_SPLIT * len(df))
 x = []
 y = []
 y_multi = []
@@ -176,15 +185,7 @@ for i in range(len(df) - LOOK_BACK - 1):
 
 x, y, y_multi = np.array(x), np.array(y), np.array(y_multi)
 
-y_train = y[:test_size + LOOK_BACK]
-x_train = x[:test_size + LOOK_BACK]
-x = x.reshape(x.shape[0], LOOK_BACK, N_FEATURES)
-x_train = x_train.reshape(x_train.shape[0], LOOK_BACK, N_FEATURES)
-print(f'x.shape: {x.shape}')
-print(f'y.shape: {y.shape}')
-print(f'x_train.shape: {x_train.shape}')
-
-x_test = x[test_size + LOOK_BACK:]
+x_test = x[-2 * LOOK_BACK:]
 print(f'x_test: {x_test}')
 x = x.reshape(x.shape[0], LOOK_BACK, N_FEATURES)
 x_test = x_test.reshape(x_test.shape[0], LOOK_BACK, N_FEATURES)
@@ -207,17 +208,6 @@ y_predict_multi = model_multi.predict(x_test)
 
 history = fit_model(model_multi)
 y_predict_multi_final = model_multi.predict(x_test)
-
-
-def get_updated_x(x_last: [], last_prediction: []) -> []:
-    # print(f'x_last input values: {x_last[-1]}')
-
-    x_last = np.append(x_last[1:], last_prediction)
-    x_last = x_last.reshape(LOOK_BACK, N_FEATURES)
-    # print(f'x_last new: {X_last}')
-    # print(f'x_last input values new: {x_last[-1]}')
-
-    return np.expand_dims(x_last, axis=0)
 
 
 # for prediction_steps in range(PREDICTION_RANGE):
@@ -252,7 +242,7 @@ y_predict_multi_final = y_predict_multi_final[:, 1]
 
 # Plot graph
 plt.figure(figsize=(20, 8))
-plt.plot(input_data[(2 * LOOK_BACK) + test_size + 1:, 1], color='green')
+plt.plot(input_data[-2 * LOOK_BACK:, 1], color='green')
 plt.plot(y_predict, color='red')
 plt.plot(y_predict_multi, color='orange')
 plt.plot(y_predict_multi_final, color='purple')
