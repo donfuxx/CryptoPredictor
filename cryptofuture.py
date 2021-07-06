@@ -30,10 +30,10 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 EPOCHS = 1000
 DROPOUT = 0.1
-BATCH_SIZE = 512
-LOOK_BACK = 60
-UNITS = LOOK_BACK * 1
-VALIDATION_SPLIT = .01
+BATCH_SIZE = 8
+LOOK_BACK = 14
+UNITS = LOOK_BACK * 8
+VALIDATION_SPLIT = .0
 PREDICTION_RANGE = LOOK_BACK
 
 
@@ -43,9 +43,9 @@ def summary(for_model: Model) -> str:
     return '\n'.join(summary_data)
 
 
-def create_model_callbacks() -> []:
-    es = EarlyStopping(monitor='loss', min_delta=1e-10, patience=40, verbose=1)
-    rlr = ReduceLROnPlateau(monitor='loss', factor=0.2, patience=30, verbose=1)
+def create_model_callbacks(es_patience: int = 40, lr_patience: int = 30) -> []:
+    es = EarlyStopping(monitor='loss', min_delta=1e-10, patience=es_patience, verbose=1)
+    rlr = ReduceLROnPlateau(monitor='loss', factor=0.2, patience=lr_patience, verbose=1)
     mcp = ModelCheckpoint(filepath='weights.h5', monitor='loss', verbose=1, save_best_only=True,
                           save_weights_only=True)
 
@@ -79,7 +79,7 @@ def build_model(n_output: int) -> Model:
     # new_model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
     new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
-    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+    new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
@@ -98,17 +98,16 @@ def build_model(n_output: int) -> Model:
 
 
 def fit_model(new_model: Model, split: float = 0) -> History:
-    # history = new_model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
-    #                     validation_split=0.1)
-    new_history = new_model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
+    new_history = new_model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(40, 30),
                                 validation_split=split
                                 )
 
     new_model.load_weights(filepath="weights.h5")
 
-    new_history = new_model.fit(x, y, epochs=1, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(),
-                        validation_split=split
-                        )
+    new_history = new_model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(4, 3),
+                                validation_split=split
+                                )
+    new_model.load_weights(filepath="weights.h5")
     return new_history
 
 
@@ -199,7 +198,6 @@ history = fit_model(model, VALIDATION_SPLIT)
 # tensorflow.keras.backend.clear_session()
 history_multi = fit_model(model_multi, VALIDATION_SPLIT)
 
-
 y_predict = model.predict(x_test)
 print(len(x_test))
 print(len(y_predict))
@@ -208,7 +206,6 @@ y_predict_multi = model_multi.predict(x_test)
 
 history = fit_model(model_multi)
 y_predict_multi_final = model_multi.predict(x_test)
-
 
 # for prediction_steps in range(PREDICTION_RANGE):
 #     x_predict_multi = get_updated_x(x[-1], y_predict_multi[-1])
@@ -249,14 +246,14 @@ plt.plot(y_predict_multi_final, color='purple')
 plt.axvline(x=len(x_test) - 1, color='blue', label='Prediction split')
 plt.axvline(x=len(x_test) - 1 - VALIDATION_SPLIT * len(x), color='blue', label='Validation split')
 plt.title(
-    f'BTC Price Prediction (loss: {history.history["loss"][-1]}, epochs: {EPOCHS}, look back: {LOOK_BACK}, features: {N_FEATURES})')
+    f'BTC Price Prediction (loss: {history_multi.history["loss"][-1]}, epochs: {EPOCHS}, look back: {LOOK_BACK}, features: {N_FEATURES})')
 plt.legend(['Actual', 'Validation', 'Validation multi', 'Prediction'], loc='best', fontsize='xx-large')
 plt.xlabel("Time (latest-> oldest)")
 plt.ylabel("Opening Price")
-plt.figtext(0.7, 0.05, "NFA!", ha="center", fontsize=10, bbox={"facecolor": "orange", "alpha": 0.5, "pad": 5})
+plt.figtext(0.7, 0.05, f'NFA! \n loss: {history.history["loss"][-1]} \n loss multi: {history_multi.history["loss"][-1]}', ha="center", fontsize=10, bbox={"facecolor": "orange", "alpha": 0.5, "pad": 5})
 plt.annotate(summary(model), (0, 0), (0, -40), xycoords='axes fraction', textcoords='offset points', va='top')
 plt.annotate(model.optimizer, (0, 0), (600, -40), xycoords='axes fraction', textcoords='offset points', va='top')
 
 plt.savefig(
-    f'plots/BTC_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{history.history["loss"][-1]}.png')
+    f'plots/BTC_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{history_multi.history["loss"][-1]}.png')
 plt.show()
