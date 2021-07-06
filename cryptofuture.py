@@ -30,11 +30,11 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 EPOCHS = 1000
 DROPOUT = 0.1
-BATCH_SIZE = 32
+BATCH_SIZE = 512
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
 TEST_SPLIT = .7
-VALIDATION_SPLIT = .05
+VALIDATION_SPLIT = .01
 PREDICTION_RANGE = LOOK_BACK
 
 
@@ -78,7 +78,7 @@ def build_model(n_output: int) -> Model:
     #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+    new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
