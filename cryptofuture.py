@@ -30,9 +30,9 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 EPOCHS = 1000
 DROPOUT = 0.1
-BATCH_SIZE = 8
-LOOK_BACK = 14
-UNITS = LOOK_BACK * 8
+BATCH_SIZE = 32
+LOOK_BACK = 30
+UNITS = LOOK_BACK * 1
 VALIDATION_SPLIT = .0
 PREDICTION_RANGE = LOOK_BACK
 
@@ -67,23 +67,23 @@ def df_info(name: str, data):
 
 def build_model(n_output: int) -> Model:
     new_model = Sequential()
-    new_model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
-                         strides=1, padding="causal",
-                         activation="relu",
-                         input_shape=(x.shape[1], N_FEATURES)))
+    # new_model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
+    #                      strides=1, padding="causal",
+    #                      activation="relu",
+    #                      input_shape=(x.shape[1], N_FEATURES)))
     # new_model.add(
     #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
-    # new_model.add(
-    #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
+    new_model.add(
+        Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-    new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
-    new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
-    new_model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
+    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
     new_model.add(Dropout(DROPOUT))
     # new_model.add(LSTM(units=UNITS))
     new_model.add(Dense(units=n_output))
@@ -97,14 +97,14 @@ def build_model(n_output: int) -> Model:
     return new_model
 
 
-def fit_model(new_model: Model, split: float = 0) -> History:
-    new_history = new_model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(40, 30),
+def fit_model(new_model: Model, epochs: int = EPOCHS, split: float = VALIDATION_SPLIT) -> History:
+    new_history = new_model.fit(x, y, epochs=epochs, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(40, 30),
                                 validation_split=split
                                 )
 
     new_model.load_weights(filepath="weights.h5")
 
-    new_history = new_model.fit(x, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(4, 3),
+    new_history = new_model.fit(x, y, epochs=epochs, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(4, 3),
                                 validation_split=split
                                 )
     new_model.load_weights(filepath="weights.h5")
@@ -120,6 +120,19 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
     # print(f'x_last input values new: {x_last[-1]}')
 
     return np.expand_dims(x_last, axis=0)
+
+
+def get_stats() -> str:
+    return f'loss: {history.history["loss"][-1]} \n ' \
+           f'loss multi: {history_multi.history["loss"][-1]} \n ' \
+           f'EPOCHS: {EPOCHS} \n ' \
+           f'UNITS: {UNITS} \n ' \
+           f'BATCH_SIZE: {BATCH_SIZE} \n ' \
+           f'LOOK_BACK: {LOOK_BACK} \n ' \
+           f'VALIDATION_SPLIT: {VALIDATION_SPLIT} \n ' \
+           f'DROPOUT: {DROPOUT} \n ' \
+           f'N_FEATURES: {N_FEATURES} \n ' \
+           f'PREDICTION_RANGE: {PREDICTION_RANGE} '
 
 
 # Download data
@@ -194,9 +207,9 @@ print(f'x_test.shape: {x_test.shape}')
 model = build_model(1)
 model_multi = build_model(N_FEATURES)
 
-history = fit_model(model, VALIDATION_SPLIT)
+history = fit_model(model)
 # tensorflow.keras.backend.clear_session()
-history_multi = fit_model(model_multi, VALIDATION_SPLIT)
+history_multi = fit_model(model_multi, 1)
 
 y_predict = model.predict(x_test)
 print(len(x_test))
@@ -204,7 +217,7 @@ print(len(y_predict))
 
 y_predict_multi = model_multi.predict(x_test)
 
-history = fit_model(model_multi)
+history_multi = fit_model(model_multi)
 y_predict_multi_final = model_multi.predict(x_test)
 
 # for prediction_steps in range(PREDICTION_RANGE):
@@ -245,12 +258,11 @@ plt.plot(y_predict_multi, color='orange')
 plt.plot(y_predict_multi_final, color='purple')
 plt.axvline(x=len(x_test) - 1, color='blue', label='Prediction split')
 plt.axvline(x=len(x_test) - 1 - VALIDATION_SPLIT * len(x), color='blue', label='Validation split')
-plt.title(
-    f'BTC Price Prediction (loss: {history_multi.history["loss"][-1]}, epochs: {EPOCHS}, look back: {LOOK_BACK}, features: {N_FEATURES})')
+plt.title('BTC Price Prediction (NFA! No Warranties!)')
 plt.legend(['Actual', 'Validation', 'Validation multi', 'Prediction'], loc='best', fontsize='xx-large')
 plt.xlabel("Time (latest-> oldest)")
 plt.ylabel("Opening Price")
-plt.figtext(0.7, 0.05, f'NFA! \n loss: {history.history["loss"][-1]} \n loss multi: {history_multi.history["loss"][-1]}', ha="center", fontsize=10, bbox={"facecolor": "orange", "alpha": 0.5, "pad": 5})
+plt.figtext(0.7, 0.05, get_stats(), ha="center", fontsize=10, bbox={"facecolor": "orange", "alpha": 0.5, "pad": 5})
 plt.annotate(summary(model), (0, 0), (0, -40), xycoords='axes fraction', textcoords='offset points', va='top')
 plt.annotate(model.optimizer, (0, 0), (600, -40), xycoords='axes fraction', textcoords='offset points', va='top')
 
