@@ -28,13 +28,13 @@ warnings.filterwarnings("ignore")
 tensorflow.keras.backend.clear_session()
 
 # Configuration
-EPOCHS = 1
+EPOCHS = 100
 DROPOUT = 0.1
-BATCH_SIZE = 256
+BATCH_SIZE = 512
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
 VALIDATION_SPLIT = .0
-PREDICTION_RANGE = 3
+PREDICTION_RANGE = 8
 
 
 def summary(for_model: Model) -> str:
@@ -77,13 +77,13 @@ def build_model(n_output: int) -> Model:
     #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-    new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+    # new_model.add(Dropout(DROPOUT))
+    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
-    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
-    # new_model.add(Dropout(DROPOUT))
-    new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu')))
+    new_model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
     new_model.add(Dropout(DROPOUT))
     # new_model.add(LSTM(units=UNITS))
     new_model.add(Dense(units=n_output))
@@ -98,17 +98,10 @@ def build_model(n_output: int) -> Model:
 
 
 def fit_model(new_x: [], new_y: [], new_model: Model, epochs: int = EPOCHS, split: float = VALIDATION_SPLIT) -> History:
-    # new_model.load_weights(filepath="weights.h5")
     new_model.fit(new_x, new_y, epochs=epochs, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(40, 30),
                   validation_split=split
                   )
-
     new_model.load_weights(filepath="weights.h5")
-
-    # new_model.fit(x, y, epochs=epochs, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(4, 3),
-    #                             validation_split=split
-    #                             )
-    # new_model.load_weights(filepath="weights.h5")
     return new_model.history
 
 
