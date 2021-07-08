@@ -28,13 +28,13 @@ warnings.filterwarnings("ignore")
 tensorflow.keras.backend.clear_session()
 
 # Configuration
-EPOCHS = 1000
+EPOCHS = 1
 DROPOUT = 0.1
 BATCH_SIZE = 256
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
 VALIDATION_SPLIT = .0
-PREDICTION_RANGE = LOOK_BACK
+PREDICTION_RANGE = 3
 
 
 def summary(for_model: Model) -> str:
@@ -97,11 +97,11 @@ def build_model(n_output: int) -> Model:
     return new_model
 
 
-def fit_model(new_model: Model, epochs: int = EPOCHS, split: float = VALIDATION_SPLIT) -> History:
+def fit_model(new_x: [], new_y: [], new_model: Model, epochs: int = EPOCHS, split: float = VALIDATION_SPLIT) -> History:
     # new_model.load_weights(filepath="weights.h5")
-    new_model.fit(x, y, epochs=epochs, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(40, 30),
-                                validation_split=split
-                                )
+    new_model.fit(new_x, new_y, epochs=epochs, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(40, 30),
+                  validation_split=split
+                  )
 
     new_model.load_weights(filepath="weights.h5")
 
@@ -208,7 +208,7 @@ print(f'x_test.shape: {x_test.shape}')
 model = build_model(1)
 model_multi = build_model(N_FEATURES)
 
-history = fit_model(model)
+history = fit_model(x, y, model)
 # tensorflow.keras.backend.clear_session()
 # history_multi = fit_model(model_multi, epochs=1)
 
@@ -218,7 +218,7 @@ print(len(y_predict))
 
 # y_predict_multi = model_multi.predict(x_test)
 
-history_multi = fit_model(model_multi)
+history_multi = fit_model(x, y_multi, model_multi)
 y_predict_multi_final = model_multi.predict(x_test)
 
 # for prediction_steps in range(PREDICTION_RANGE):
@@ -240,6 +240,10 @@ for prediction_steps in range(PREDICTION_RANGE):
 
     y_predict_multi_final = np.append(y_predict_multi_final, y_predict_new, axis=0)
     # print(f'predicted values: {y_predict}')
+
+    # dynamic retrain
+    y_multi = np.append(y_multi, y_predict_new, axis=0)
+    history_multi = fit_model(x, y_multi, model_multi, epochs=5)
 
 # Inverse scale value //FIXME inv scaling
 # y_predict = scaler.inverse_transform(y_predict)
