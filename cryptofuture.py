@@ -30,8 +30,8 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 EPOCHS = 1000
 DROPOUT = 0.1
-BATCH_SIZE = 32
-LOOK_BACK = 30
+BATCH_SIZE = 256
+LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
 VALIDATION_SPLIT = .0
 PREDICTION_RANGE = LOOK_BACK
@@ -67,23 +67,23 @@ def df_info(name: str, data):
 
 def build_model(n_output: int) -> Model:
     new_model = Sequential()
-    # new_model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
-    #                      strides=1, padding="causal",
-    #                      activation="relu",
-    #                      input_shape=(x.shape[1], N_FEATURES)))
+    new_model.add(Conv1D(filters=LOOK_BACK, kernel_size=5,
+                         strides=1, padding="causal",
+                         activation="relu",
+                         input_shape=(x.shape[1], N_FEATURES)))
     # new_model.add(
     #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES), return_sequences=True)))
-    new_model.add(
-        Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
+    # new_model.add(
+    #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
-    # new_model.add(Dropout(DROPOUT))
-    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+    new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
-    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
+    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+    # new_model.add(Dropout(DROPOUT))
+    new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu')))
     new_model.add(Dropout(DROPOUT))
     # new_model.add(LSTM(units=UNITS))
     new_model.add(Dense(units=n_output))
@@ -98,17 +98,18 @@ def build_model(n_output: int) -> Model:
 
 
 def fit_model(new_model: Model, epochs: int = EPOCHS, split: float = VALIDATION_SPLIT) -> History:
-    new_history = new_model.fit(x, y, epochs=epochs, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(40, 30),
+    # new_model.load_weights(filepath="weights.h5")
+    new_model.fit(x, y, epochs=epochs, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(40, 30),
                                 validation_split=split
                                 )
 
     new_model.load_weights(filepath="weights.h5")
 
-    new_history = new_model.fit(x, y, epochs=epochs, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(4, 3),
-                                validation_split=split
-                                )
-    new_model.load_weights(filepath="weights.h5")
-    return new_history
+    # new_model.fit(x, y, epochs=epochs, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(4, 3),
+    #                             validation_split=split
+    #                             )
+    # new_model.load_weights(filepath="weights.h5")
+    return new_model.history
 
 
 def get_updated_x(x_last: [], last_prediction: []) -> []:
@@ -144,10 +145,10 @@ df = df.fillna(df.mean())
 
 df_info('df', df)
 
-df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
-# df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
-#                       storage_options=headers)
-# df_coin.to_csv('data/btc_metrics.csv')
+# df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
+df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
+                      storage_options=headers)
+df_coin.to_csv('data/btc_metrics.csv')
 df_coin = df_coin.drop(columns=['date'])
 df_coin = df_coin.fillna(df_coin.mean())
 df_coin = df_coin.drop(df_coin.index[:1577])
@@ -209,13 +210,13 @@ model_multi = build_model(N_FEATURES)
 
 history = fit_model(model)
 # tensorflow.keras.backend.clear_session()
-history_multi = fit_model(model_multi, 1)
+# history_multi = fit_model(model_multi, epochs=1)
 
 y_predict = model.predict(x_test)
 print(len(x_test))
 print(len(y_predict))
 
-y_predict_multi = model_multi.predict(x_test)
+# y_predict_multi = model_multi.predict(x_test)
 
 history_multi = fit_model(model_multi)
 y_predict_multi_final = model_multi.predict(x_test)
@@ -247,14 +248,14 @@ for prediction_steps in range(PREDICTION_RANGE):
 # print(f'y_predict: {y_predict}')
 # print(f'input_data: {input_data}')
 
-y_predict_multi = y_predict_multi[:, 1]
+# y_predict_multi = y_predict_multi[:, 1]
 y_predict_multi_final = y_predict_multi_final[:, 1]
 
 # Plot graph
 plt.figure(figsize=(20, 8))
 plt.plot(input_data[-2 * LOOK_BACK:, 1], color='green')
 plt.plot(y_predict, color='red')
-plt.plot(y_predict_multi, color='orange')
+# plt.plot(y_predict_multi, color='orange')
 plt.plot(y_predict_multi_final, color='purple')
 plt.axvline(x=len(x_test) - 1, color='blue', label='Prediction split')
 plt.axvline(x=len(x_test) - 1 - VALIDATION_SPLIT * len(x), color='blue', label='Validation split')
