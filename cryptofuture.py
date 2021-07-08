@@ -28,13 +28,13 @@ warnings.filterwarnings("ignore")
 tensorflow.keras.backend.clear_session()
 
 # Configuration
-EPOCHS = 100
+EPOCHS = 1000
 DROPOUT = 0.1
 BATCH_SIZE = 512
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
 VALIDATION_SPLIT = .0
-PREDICTION_RANGE = 8
+PREDICTION_RANGE = 60
 
 
 def summary(for_model: Model) -> str:
@@ -226,17 +226,23 @@ y_predict_multi_final = model_multi.predict(x_test)
 
 for prediction_steps in range(PREDICTION_RANGE):
     x_predict_multi_final = get_updated_x(x[-1], y_predict_multi_final[-1])
-    y_predict_new = model_multi.predict(x_predict_multi_final)
-    print(y_predict_new[0, 1])
-    # print(f'future_prediction.shape: {y_predict_new.shape}')
+    y_predict_multi_new = model_multi.predict(x_predict_multi_final)
+
+    # insert single feature prediction into multi feature prediction
+    y_predict_new = model.predict(x_predict_multi_final)
+    y_predict_multi_new[0] = y_predict_new
+
+    print(y_predict_multi_new[0, 1])
+    # print(f'future_prediction.shape: {y_predict_multi_new.shape}')
     x = np.append(x, x_predict_multi_final, axis=0)
 
-    y_predict_multi_final = np.append(y_predict_multi_final, y_predict_new, axis=0)
+    y_predict_multi_final = np.append(y_predict_multi_final, y_predict_multi_new, axis=0)
+    y_predict = np.append(y_predict, [[y_predict_multi_new[0, 1]]], axis=0)
     # print(f'predicted values: {y_predict}')
 
     # dynamic retrain
-    y_multi = np.append(y_multi, y_predict_new, axis=0)
-    history_multi = fit_model(x, y_multi, model_multi, epochs=5)
+    # y_multi = np.append(y_multi, y_predict_multi_new, axis=0)
+    # history_multi = fit_model(x, y_multi, model_multi, epochs=5)
 
 # Inverse scale value //FIXME inv scaling
 # y_predict = scaler.inverse_transform(y_predict)
