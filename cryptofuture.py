@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore")
 tensorflow.keras.backend.clear_session()
 
 # Configuration
-EPOCHS = 1000
+EPOCHS = 1
 DROPOUT = 0.1
 BATCH_SIZE = 512
 LOOK_BACK = 60
@@ -231,6 +231,10 @@ for prediction_steps in range(PREDICTION_RANGE):
     # insert single feature prediction into multi feature prediction
     y_predict_new = model.predict(x_predict_multi_final)
     y_predict_multi_new[0] = y_predict_new
+
+    # break at extreme values
+    if abs(y_predict_multi_new[0, 1]) > 2:
+        break
 
     print(y_predict_multi_new[0, 1])
     # print(f'future_prediction.shape: {y_predict_multi_new.shape}')
