@@ -28,13 +28,13 @@ warnings.filterwarnings("ignore")
 tensorflow.keras.backend.clear_session()
 
 # Configuration
-EPOCHS = 1
+EPOCHS = 1000
 DROPOUT = 0.1
 BATCH_SIZE = 512
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
 VALIDATION_SPLIT = .0
-PREDICTION_RANGE = 60
+PREDICTION_RANGE = 6
 
 
 def summary(for_model: Model) -> str:
@@ -97,7 +97,8 @@ def build_model(n_output: int) -> Model:
     return new_model
 
 
-def fit_model(new_x: [], new_y: [], new_model: Model, epochs: int = EPOCHS, split: float = VALIDATION_SPLIT) -> History:
+def fit_model(new_x: [], new_y: [], new_model: Model, epochs: int = EPOCHS, split: float = VALIDATION_SPLIT,
+              es_patience: int = 40, lr_patience: int = 30) -> History:
     new_model.fit(new_x, new_y, epochs=epochs, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(40, 30),
                   validation_split=split
                   )
@@ -138,10 +139,10 @@ df = df.fillna(df.mean())
 
 df_info('df', df)
 
-# df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
-df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
-                      storage_options=headers)
-df_coin.to_csv('data/btc_metrics.csv')
+df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
+# df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
+#                       storage_options=headers)
+# df_coin.to_csv('data/btc_metrics.csv')
 df_coin = df_coin.drop(columns=['date'])
 df_coin = df_coin.fillna(df_coin.mean())
 df_coin = df_coin.drop(df_coin.index[:1577])
@@ -245,8 +246,10 @@ for prediction_steps in range(PREDICTION_RANGE):
     # print(f'predicted values: {y_predict}')
 
     # dynamic retrain
-    # y_multi = np.append(y_multi, y_predict_multi_new, axis=0)
-    # history_multi = fit_model(x, y_multi, model_multi, epochs=5)
+    y_multi = np.append(y_multi, y_predict_multi_new, axis=0)
+    history_multi = fit_model(x, y_multi, model_multi, es_patience=4, lr_patience=3)
+    y = np.append(y, y_predict_new[0], axis=0)
+    history = fit_model(x, y, model, es_patience=4, lr_patience=3)
 
 # Inverse scale value //FIXME inv scaling
 # y_predict = scaler.inverse_transform(y_predict)
@@ -263,7 +266,7 @@ plt.figure(figsize=(20, 8))
 plt.plot(input_data[-2 * LOOK_BACK:, 1], color='green')
 plt.plot(y_predict, color='red')
 # plt.plot(y_predict_multi, color='orange')
-plt.plot(y_predict_multi_final, color='purple')
+plt.plot(y_predict_multi_final[:-PREDICTION_RANGE], color='purple')
 plt.axvline(x=len(x_test) - 1, color='blue', label='Prediction split')
 plt.axvline(x=len(x_test) - 1 - VALIDATION_SPLIT * len(x), color='blue', label='Validation split')
 plt.title('BTC Price Prediction (NFA! No Warranties!)')
