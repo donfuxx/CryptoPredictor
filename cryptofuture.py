@@ -30,13 +30,13 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 EPOCHS = 1000
 DROPOUT = 0.1
-BATCH_SIZE = 512
+BATCH_SIZE = 8
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
-VALIDATION_SPLIT = .05
+VALIDATION_SPLIT = .0
 PREDICTION_RANGE = 30
 DYNAMIC_RETRAIN = False
-USE_SAVED_MODELS = False
+USE_SAVED_MODELS = True
 
 
 def summary(for_model: Model) -> str:
@@ -100,13 +100,13 @@ def build_model(n_output: int) -> Model:
 
 
 def fit_model(new_x: [], new_y: [], new_model: Model, epochs: int = EPOCHS, split: float = VALIDATION_SPLIT,
-              es_patience: int = 40, lr_patience: int = 30) -> History:
+              es_patience: int = 40, lr_patience: int = 30) -> [Model, History]:
     new_model.fit(new_x, new_y, epochs=epochs, batch_size=BATCH_SIZE,
                   callbacks=create_model_callbacks(es_patience, lr_patience),
                   validation_split=split
                   )
     new_model.load_weights(filepath="weights.h5")
-    return new_model.history
+    return [new_model, new_model.history]
 
 
 def get_updated_x(x_last: [], last_prediction: []) -> []:
@@ -209,8 +209,8 @@ else:
     model = build_model(1)
     model_multi = build_model(N_FEATURES)
 
-history = fit_model(x, y, model)
-history_multi = fit_model(x, y_multi, model_multi)
+model, history = fit_model(x, y, model)
+model_multi, history_multi = fit_model(x, y_multi, model_multi)
 
 y_predict = model.predict(x_test)
 y_predict_multi = model_multi.predict(x_test)
@@ -242,9 +242,9 @@ for prediction_steps in range(PREDICTION_RANGE):
     # dynamic retrain
     if DYNAMIC_RETRAIN:
         y_multi = np.append(y_multi, y_predict_multi_new, axis=0)
-        history = fit_model(x, y_multi, model_multi, epochs=100, es_patience=4, lr_patience=3)
+        model, history = fit_model(x, y_multi, model_multi, epochs=100, es_patience=4, lr_patience=3)
         y = np.append(y, y_predict_new[0], axis=0)
-        history_multi = fit_model(x, y, model, epochs=100, es_patience=4, lr_patience=3)
+        model_multi, history_multi = fit_model(x, y, model, epochs=100, es_patience=4, lr_patience=3)
 
 # Inverse scale value //FIXME inv scaling
 # y_predict = scaler.inverse_transform(y_predict)
