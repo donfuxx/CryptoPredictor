@@ -30,11 +30,12 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 EPOCHS = 1000
 DROPOUT = 0.1
-BATCH_SIZE = 512
+BATCH_SIZE = 8
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
 VALIDATION_SPLIT = .0
-PREDICTION_RANGE = 6
+PREDICTION_RANGE = 30
+DYNAMIC_RETRAIN = False
 
 
 def summary(for_model: Model) -> str:
@@ -77,9 +78,9 @@ def build_model(n_output: int) -> Model:
     #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+    new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
-    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+    new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
@@ -120,7 +121,7 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
 def get_stats() -> str:
     return f'loss: {history.history["loss"][-1]} \n ' \
            f'loss multi: {history_multi.history["loss"][-1]} \n ' \
-           f'EPOCHS: {EPOCHS} \n ' \
+           f'EPOCHS: {EPOCHS} DYNAMIC_RETRAIN: {DYNAMIC_RETRAIN} \n ' \
            f'UNITS: {UNITS} \n ' \
            f'BATCH_SIZE: {BATCH_SIZE} \n ' \
            f'LOOK_BACK: {LOOK_BACK} \n ' \
@@ -246,10 +247,11 @@ for prediction_steps in range(PREDICTION_RANGE):
     # print(f'predicted values: {y_predict}')
 
     # dynamic retrain
-    y_multi = np.append(y_multi, y_predict_multi_new, axis=0)
-    history_multi = fit_model(x, y_multi, model_multi, es_patience=4, lr_patience=3)
-    y = np.append(y, y_predict_new[0], axis=0)
-    history = fit_model(x, y, model, es_patience=4, lr_patience=3)
+    if DYNAMIC_RETRAIN:
+        y_multi = np.append(y_multi, y_predict_multi_new, axis=0)
+        history_multi = fit_model(x, y_multi, model_multi, epochs=10, es_patience=4, lr_patience=3)
+        y = np.append(y, y_predict_new[0], axis=0)
+        history = fit_model(x, y, model, epochs=10, es_patience=4, lr_patience=3)
 
 # Inverse scale value //FIXME inv scaling
 # y_predict = scaler.inverse_transform(y_predict)
