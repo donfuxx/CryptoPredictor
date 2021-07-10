@@ -119,8 +119,8 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
 
 
 def get_stats() -> str:
-    return f'loss: {history.history["loss"][-1]} \n ' \
-           f'loss multi: {history_multi.history["loss"][-1]} \n ' \
+    return f'loss: {model.history.history["loss"][-1]} \n ' \
+           f'loss multi: {model_multi.history.history["loss"][-1]} \n ' \
            f'EPOCHS: {EPOCHS} DYNAMIC_RETRAIN: {DYNAMIC_RETRAIN} \n ' \
            f'UNITS: {UNITS} \n ' \
            f'BATCH_SIZE: {BATCH_SIZE} \n ' \
@@ -205,8 +205,6 @@ print(f'x_test.shape: {x_test.shape}')
 
 model = tensorflow.keras.models.load_model("models/model_single")
 model_multi = tensorflow.keras.models.load_model("models/model_multi")
-history = model.history
-history_multi = model_multi.history
 
 # history = fit_model(x, y, model)
 
@@ -221,16 +219,6 @@ y_predict_multi_final = model_multi.predict(x_test)
 
 model.save('models/model_single')
 model_multi.save('models/model_multi')
-
-# for prediction_steps in range(PREDICTION_RANGE):
-#     x_predict_multi = get_updated_x(x[-1], y_predict_multi[-1])
-#     y_predict_new = model_multi.predict(x_predict_multi)
-#     print(y_predict_new[0, 1])
-#     # print(f'future_prediction.shape: {y_predict_new.shape}')
-#     x = np.append(x, x_predict_multi, axis=0)
-#
-#     y_predict_multi = np.append(y_predict_multi, y_predict_new, axis=0)
-#     # print(f'predicted values: {y_predict}')
 
 for prediction_steps in range(PREDICTION_RANGE):
     x_predict_multi_final = get_updated_x(x[-1], y_predict_multi_final[-1])
@@ -255,9 +243,9 @@ for prediction_steps in range(PREDICTION_RANGE):
     # dynamic retrain
     if DYNAMIC_RETRAIN:
         y_multi = np.append(y_multi, y_predict_multi_new, axis=0)
-        history_multi = fit_model(x, y_multi, model_multi, epochs=10, es_patience=4, lr_patience=3)
+        fit_model(x, y_multi, model_multi, epochs=100, es_patience=4, lr_patience=3)
         y = np.append(y, y_predict_new[0], axis=0)
-        history = fit_model(x, y, model, epochs=10, es_patience=4, lr_patience=3)
+        fit_model(x, y, model, epochs=100, es_patience=4, lr_patience=3)
 
 # Inverse scale value //FIXME inv scaling
 # y_predict = scaler.inverse_transform(y_predict)
@@ -286,5 +274,5 @@ plt.annotate(summary(model), (0, 0), (0, -40), xycoords='axes fraction', textcoo
 plt.annotate(model.optimizer, (0, 0), (600, -40), xycoords='axes fraction', textcoords='offset points', va='top')
 
 plt.savefig(
-    f'plots/BTC_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{history_multi.history["loss"][-1]}.png')
+    f'plots/BTC_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{model.history.history["loss"][-1]}.png')
 plt.show()
