@@ -30,12 +30,13 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 EPOCHS = 1000
 DROPOUT = 0.1
-BATCH_SIZE = 8
+BATCH_SIZE = 512
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
-VALIDATION_SPLIT = .0
+VALIDATION_SPLIT = .05
 PREDICTION_RANGE = 30
-DYNAMIC_RETRAIN = True
+DYNAMIC_RETRAIN = False
+USE_SAVED_MODELS = False
 
 
 def summary(for_model: Model) -> str:
@@ -100,7 +101,8 @@ def build_model(n_output: int) -> Model:
 
 def fit_model(new_x: [], new_y: [], new_model: Model, epochs: int = EPOCHS, split: float = VALIDATION_SPLIT,
               es_patience: int = 40, lr_patience: int = 30) -> History:
-    new_model.fit(new_x, new_y, epochs=epochs, batch_size=BATCH_SIZE, callbacks=create_model_callbacks(40, 30),
+    new_model.fit(new_x, new_y, epochs=epochs, batch_size=BATCH_SIZE,
+                  callbacks=create_model_callbacks(es_patience, lr_patience),
                   validation_split=split
                   )
     new_model.load_weights(filepath="weights.h5")
@@ -119,8 +121,8 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
 
 
 def get_stats() -> str:
-    return f'loss: {model.history.history["loss"][-1]} \n ' \
-           f'loss multi: {model_multi.history.history["loss"][-1]} \n ' \
+    return f'loss: {history.history.get("loss")[-1]} \n ' \
+           f'loss multi: {history_multi.history.get("loss")[-1]} \n ' \
            f'EPOCHS: {EPOCHS} DYNAMIC_RETRAIN: {DYNAMIC_RETRAIN} \n ' \
            f'UNITS: {UNITS} \n ' \
            f'BATCH_SIZE: {BATCH_SIZE} \n ' \
@@ -200,32 +202,29 @@ x_test = x_test.reshape(x_test.shape[0], LOOK_BACK, N_FEATURES)
 print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
 
-# model = build_model(1)
-# model_multi = build_model(N_FEATURES)
+if USE_SAVED_MODELS:
+    model = tensorflow.keras.models.load_model("models/model_single")
+    model_multi = tensorflow.keras.models.load_model("models/model_multi")
+else:
+    model = build_model(1)
+    model_multi = build_model(N_FEATURES)
 
-model = tensorflow.keras.models.load_model("models/model_single")
-model_multi = tensorflow.keras.models.load_model("models/model_multi")
-
-# history = fit_model(x, y, model)
+history = fit_model(x, y, model)
+history_multi = fit_model(x, y_multi, model_multi)
 
 y_predict = model.predict(x_test)
-print(len(x_test))
-print(len(y_predict))
+y_predict_multi = model_multi.predict(x_test)
 
-# y_predict_multi = model_multi.predict(x_test)
-
-# history_multi = fit_model(x, y_multi, model_multi)
-y_predict_multi_final = model_multi.predict(x_test)
-
-model.save('models/model_single')
-model_multi.save('models/model_multi')
+if VALIDATION_SPLIT == .0:
+    model.save('models/model_single')
+    model_multi.save('models/model_multi')
 
 for prediction_steps in range(PREDICTION_RANGE):
-    x_predict_multi_final = get_updated_x(x[-1], y_predict_multi_final[-1])
-    y_predict_multi_new = model_multi.predict(x_predict_multi_final)
+    x_predict_multi = get_updated_x(x[-1], y_predict_multi[-1])
+    y_predict_multi_new = model_multi.predict(x_predict_multi)
 
     # insert single feature prediction into multi feature prediction
-    y_predict_new = model.predict(x_predict_multi_final)
+    y_predict_new = model.predict(x_predict_multi)
     y_predict_multi_new[0] = y_predict_new
 
     # break at extreme values
@@ -234,18 +233,18 @@ for prediction_steps in range(PREDICTION_RANGE):
 
     print(y_predict_multi_new[0, 1])
     # print(f'future_prediction.shape: {y_predict_multi_new.shape}')
-    x = np.append(x, x_predict_multi_final, axis=0)
+    x = np.append(x, x_predict_multi, axis=0)
 
-    y_predict_multi_final = np.append(y_predict_multi_final, y_predict_multi_new, axis=0)
+    y_predict_multi = np.append(y_predict_multi, y_predict_multi_new, axis=0)
     y_predict = np.append(y_predict, [[y_predict_multi_new[0, 1]]], axis=0)
     # print(f'predicted values: {y_predict}')
 
     # dynamic retrain
     if DYNAMIC_RETRAIN:
         y_multi = np.append(y_multi, y_predict_multi_new, axis=0)
-        fit_model(x, y_multi, model_multi, epochs=100, es_patience=4, lr_patience=3)
+        history = fit_model(x, y_multi, model_multi, epochs=100, es_patience=4, lr_patience=3)
         y = np.append(y, y_predict_new[0], axis=0)
-        fit_model(x, y, model, epochs=100, es_patience=4, lr_patience=3)
+        history_multi = fit_model(x, y, model, epochs=100, es_patience=4, lr_patience=3)
 
 # Inverse scale value //FIXME inv scaling
 # y_predict = scaler.inverse_transform(y_predict)
@@ -255,17 +254,17 @@ for prediction_steps in range(PREDICTION_RANGE):
 # print(f'input_data: {input_data}')
 
 # y_predict_multi = y_predict_multi[:, 1]
-y_predict_multi_final = y_predict_multi_final[:, 1]
+y_predict_multi = y_predict_multi[:, 1]
 
 # Plot graph
 plt.figure(figsize=(20, 8))
 plt.plot(input_data[-2 * LOOK_BACK:, 1], color='green')
 plt.plot(y_predict, color='red')
 # plt.plot(y_predict_multi, color='orange')
-plt.plot(y_predict_multi_final[:-PREDICTION_RANGE], color='purple')
+plt.plot(y_predict_multi[:-PREDICTION_RANGE], color='purple')
 plt.axvline(x=len(x_test) - 1, color='blue', label='Prediction split')
 plt.axvline(x=len(x_test) - 1 - VALIDATION_SPLIT * len(x), color='blue', label='Validation split')
-plt.title('BTC Price Prediction (NFA! No Warranties!)')
+plt.title(f'BTC Price Prediction (NFA! No Warranties!) - USE_SAVED_MODELS: {USE_SAVED_MODELS}')
 plt.legend(['Actual', 'Validation', 'Validation multi', 'Prediction'], loc='best', fontsize='xx-large')
 plt.xlabel("Time (latest-> oldest)")
 plt.ylabel("Opening Price")
@@ -274,5 +273,5 @@ plt.annotate(summary(model), (0, 0), (0, -40), xycoords='axes fraction', textcoo
 plt.annotate(model.optimizer, (0, 0), (600, -40), xycoords='axes fraction', textcoords='offset points', va='top')
 
 plt.savefig(
-    f'plots/BTC_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{model.history.history["loss"][-1]}.png')
+    f'plots/BTC_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{history.history.get("loss")[-1]}.png')
 plt.show()
