@@ -35,7 +35,7 @@ LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
 VALIDATION_SPLIT = .0
 PREDICTION_RANGE = 30
-DYNAMIC_RETRAIN = False
+DYNAMIC_RETRAIN = True
 
 
 def summary(for_model: Model) -> str:
@@ -200,12 +200,15 @@ x_test = x_test.reshape(x_test.shape[0], LOOK_BACK, N_FEATURES)
 print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
 
-model = build_model(1)
-model_multi = build_model(N_FEATURES)
+# model = build_model(1)
+# model_multi = build_model(N_FEATURES)
 
-history = fit_model(x, y, model)
-# tensorflow.keras.backend.clear_session()
-# history_multi = fit_model(model_multi, epochs=1)
+model = tensorflow.keras.models.load_model("models/model_single")
+model_multi = tensorflow.keras.models.load_model("models/model_multi")
+history = model.history
+history_multi = model_multi.history
+
+# history = fit_model(x, y, model)
 
 y_predict = model.predict(x_test)
 print(len(x_test))
@@ -213,8 +216,11 @@ print(len(y_predict))
 
 # y_predict_multi = model_multi.predict(x_test)
 
-history_multi = fit_model(x, y_multi, model_multi)
+# history_multi = fit_model(x, y_multi, model_multi)
 y_predict_multi_final = model_multi.predict(x_test)
+
+model.save('models/model_single')
+model_multi.save('models/model_multi')
 
 # for prediction_steps in range(PREDICTION_RANGE):
 #     x_predict_multi = get_updated_x(x[-1], y_predict_multi[-1])
