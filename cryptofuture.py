@@ -242,9 +242,9 @@ for prediction_steps in range(PREDICTION_RANGE):
     # dynamic retrain
     if DYNAMIC_RETRAIN:
         y_multi = np.append(y_multi, y_predict_multi_new, axis=0)
-        model, history = fit_model(x, y_multi, model_multi, epochs=100, es_patience=4, lr_patience=3)
+        model_multi, history_multi = fit_model(x, y_multi, model_multi, epochs=5, es_patience=4, lr_patience=3)
         y = np.append(y, y_predict_new[0], axis=0)
-        model_multi, history_multi = fit_model(x, y, model, epochs=100, es_patience=4, lr_patience=3)
+        model, history = fit_model(x, y, model, epochs=5, es_patience=4, lr_patience=3)
 
 # Inverse scale value //FIXME inv scaling
 # y_predict = scaler.inverse_transform(y_predict)
