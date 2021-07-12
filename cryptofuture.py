@@ -142,6 +142,7 @@ df = df.fillna(df.mean())
 
 df_info('df', df)
 
+# https://docs.coinmetrics.io/info/metrics
 df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
 # df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
 #                       storage_options=headers)
@@ -212,12 +213,12 @@ else:
 model, history = fit_model(x, y, model)
 model_multi, history_multi = fit_model(x, y_multi, model_multi)
 
-y_predict = model.predict(x_test)
-y_predict_multi = model_multi.predict(x_test)
-
 if VALIDATION_SPLIT == .0:
     model.save('models/model_single')
     model_multi.save('models/model_multi')
+
+y_predict = model.predict(x_test)
+y_predict_multi = model_multi.predict(x_test)
 
 for prediction_steps in range(PREDICTION_RANGE):
     x_predict_multi = get_updated_x(x[-1], y_predict_multi[-1])
