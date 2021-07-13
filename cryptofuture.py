@@ -28,15 +28,16 @@ warnings.filterwarnings("ignore")
 tensorflow.keras.backend.clear_session()
 
 # Configuration
-EPOCHS = 1000
+EPOCHS = 1
 DROPOUT = 0.1
-BATCH_SIZE = 8
+BATCH_SIZE = 512
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
 VALIDATION_SPLIT = .0
 PREDICTION_RANGE = 30
 DYNAMIC_RETRAIN = False
-USE_SAVED_MODELS = True
+USE_SAVED_MODELS = False
+SAVE_MODELS = False
 
 
 def summary(for_model: Model) -> str:
@@ -213,7 +214,7 @@ else:
 model, history = fit_model(x, y, model)
 model_multi, history_multi = fit_model(x, y_multi, model_multi)
 
-if VALIDATION_SPLIT == .0:
+if SAVE_MODELS:
     model.save('models/model_single')
     model_multi.save('models/model_multi')
 
