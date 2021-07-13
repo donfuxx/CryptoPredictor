@@ -174,12 +174,9 @@ df = df.fillna(df.mean())
 
 df_info('df', df)
 
-# input_feature = stock_data
 input_feature = df.iloc[:, :].values
 N_FEATURES = len(input_feature[0])
-# input_feature = stock_data.iloc[:,
-#                 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]].values
-input_data = input_feature
+input_data = input_feature.copy()
 
 scaler = MinMaxScaler(feature_range=(0, 1))
 input_data[:, 0:N_FEATURES] = scaler.fit_transform(input_feature[:, :])
@@ -192,13 +189,12 @@ for i in range(len(df) - LOOK_BACK - 1):
     for j in range(0, LOOK_BACK):
         t.append(input_data[[(i + j)], :])
     x.append(t)
-    y.append(input_data[i + LOOK_BACK, 1])
+    y.append(input_data[i + LOOK_BACK, 0])
     y_multi.append(input_data[i + LOOK_BACK, :])
 
 x, y, y_multi = np.array(x), np.array(y), np.array(y_multi)
 
 x_test = x[-2 * LOOK_BACK:]
-print(f'x_test: {x_test}')
 x = x.reshape(x.shape[0], LOOK_BACK, N_FEATURES)
 x_test = x_test.reshape(x_test.shape[0], LOOK_BACK, N_FEATURES)
 print(f'x.shape: {x.shape}')
@@ -248,19 +244,18 @@ for prediction_steps in range(PREDICTION_RANGE):
         y = np.append(y, y_predict_new[0], axis=0)
         model, history = fit_model(x, y, model, epochs=5, es_patience=4, lr_patience=3)
 
-# Inverse scale value //FIXME inv scaling
-# y_predict = scaler.inverse_transform(y_predict)
-# y_predict = y_predict[:, 1]
-# input_data = scaler.inverse_transform(input_data)
-# print(f'y_predict: {y_predict}')
-# print(f'input_data: {input_data}')
+# Inverse scale value
+y_predict_scaled = y_predict_multi.copy()
+y_predict_scaled[:, 0] = y_predict[:, 0]
+y_predict = scaler.inverse_transform(y_predict_scaled)
+y_predict = y_predict[:, 0]
 
-# y_predict_multi = y_predict_multi[:, 1]
-y_predict_multi = y_predict_multi[:, 1]
+y_predict_multi = scaler.inverse_transform(y_predict_multi)
+y_predict_multi = y_predict_multi[:, 0]
 
 # Plot graph
 plt.figure(figsize=(20, 8))
-plt.plot(input_data[-2 * LOOK_BACK:, 1], color='green')
+plt.plot(input_feature[-2 * LOOK_BACK:, 0], color='green')
 plt.plot(y_predict, color='red')
 # plt.plot(y_predict_multi, color='orange')
 plt.plot(y_predict_multi[:-PREDICTION_RANGE], color='purple')
