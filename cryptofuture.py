@@ -8,6 +8,7 @@ import pandas as pd
 # %matplotlib inline
 import tensorflow
 from matplotlib import rcParams
+from pandas.tseries.offsets import DateOffset
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard
 from tensorflow.keras.layers import Bidirectional
@@ -80,9 +81,9 @@ def build_model(n_output: int) -> Model:
     #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-    new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
-    new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
@@ -140,14 +141,15 @@ df = pd.read_csv("https://www.coingecko.com/price_charts/export/1/usd.csv", pars
                  storage_options=headers)
 df.to_csv('data/btc_price.csv')
 df = df.fillna(df.mean())
+dates = df.iloc[:, [0]].values
 
 df_info('df', df)
 
 # https://docs.coinmetrics.io/info/metrics
-df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
-# df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
-#                       storage_options=headers)
-# df_coin.to_csv('data/btc_metrics.csv')
+# df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
+df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
+                      storage_options=headers)
+df_coin.to_csv('data/btc_metrics.csv')
 df_coin = df_coin.drop(columns=['date'])
 df_coin = df_coin.fillna(df_coin.mean())
 df_coin = df_coin.drop(df_coin.index[:1577])
@@ -253,14 +255,19 @@ y_predict = y_predict[:, 0]
 y_predict_multi = scaler.inverse_transform(y_predict_multi)
 y_predict_multi = y_predict_multi[:, 0]
 
+plot_dates = dates[-2 * LOOK_BACK:]
+
+add_dates = [dates[-1] + DateOffset(days=x) for x in range(0, PREDICTION_RANGE + 1)]
+
+predict_dates = np.concatenate([plot_dates[:-1], add_dates])
+
 # Plot graph
 plt.figure(figsize=(20, 8))
-plt.plot(input_feature[-2 * LOOK_BACK:, 0], color='green')
-plt.plot(y_predict, color='red')
-# plt.plot(y_predict_multi, color='orange')
-plt.plot(y_predict_multi[:-PREDICTION_RANGE], color='purple')
-plt.axvline(x=len(x_test) - 1, color='blue', label='Prediction split')
-plt.axvline(x=len(x_test) - 1 - VALIDATION_SPLIT * len(x), color='blue', label='Validation split')
+plt.plot(dates[-2 * LOOK_BACK:, 0], input_feature[-2 * LOOK_BACK:, 0], color='green')
+plt.plot(predict_dates, y_predict, color='red')
+plt.plot(dates[-2 * LOOK_BACK:, 0], y_predict_multi[:-PREDICTION_RANGE], color='purple')
+# plt.axvline(dates[-1, 0], x=len(x_test) - 1, color='blue', label='Prediction split')
+# plt.axvline(dates[-1, 0], x=len(x_test) - 1 - VALIDATION_SPLIT * len(x), color='blue', label='Validation split')
 plt.title(f'BTC Price Prediction (NFA! No Warranties!) - USE_SAVED_MODELS: {USE_SAVED_MODELS}')
 plt.legend(['Actual', 'Validation', 'Validation multi', 'Prediction'], loc='best', fontsize='xx-large')
 plt.xlabel("Time (latest-> oldest)")
