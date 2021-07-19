@@ -34,8 +34,8 @@ DROPOUT = 0.1
 BATCH_SIZE = 512
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
-VALIDATION_SPLIT = .0
-PREDICTION_RANGE = 30
+VALIDATION_SPLIT = .05
+PREDICTION_RANGE = 3
 DYNAMIC_RETRAIN = False
 USE_SAVED_MODELS = False
 SAVE_MODELS = False
@@ -81,14 +81,14 @@ def build_model(n_output: int) -> Model:
     #     Bidirectional(LSTM(units=UNITS, activation='relu', input_shape=(x.shape[1], N_FEATURES))))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
-    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
-    # new_model.add(Dropout(DROPOUT))
-    # new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
+    new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
+    new_model.add(Dropout(DROPOUT))
+    new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
     new_model.add(Bidirectional(LSTM(units=UNITS, activation='linear')))
-    new_model.add(Dropout(DROPOUT))
+    # new_model.add(Dropout(DROPOUT))
     # new_model.add(LSTM(units=UNITS))
     new_model.add(Dense(units=n_output))
     # new_model.add(Dense(units=N_FEATURES))
@@ -146,10 +146,10 @@ dates = df.iloc[:, [0]].values
 df_info('df', df)
 
 # https://docs.coinmetrics.io/info/metrics
-# df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
-df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
-                      storage_options=headers)
-df_coin.to_csv('data/btc_metrics.csv')
+df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
+# df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
+#                       storage_options=headers)
+# df_coin.to_csv('data/btc_metrics.csv')
 df_coin = df_coin.drop(columns=['date'])
 df_coin = df_coin.fillna(df_coin.mean())
 df_coin = df_coin.drop(df_coin.index[:1577])
@@ -266,8 +266,8 @@ plt.figure(figsize=(20, 8))
 plt.plot(dates[-2 * LOOK_BACK:, 0], input_feature[-2 * LOOK_BACK:, 0], color='green')
 plt.plot(predict_dates, y_predict, color='red')
 plt.plot(dates[-2 * LOOK_BACK:, 0], y_predict_multi[:-PREDICTION_RANGE], color='purple')
-# plt.axvline(dates[-1, 0], x=len(x_test) - 1, color='blue', label='Prediction split')
-# plt.axvline(dates[-1, 0], x=len(x_test) - 1 - VALIDATION_SPLIT * len(x), color='blue', label='Validation split')
+plt.axvline(dates[-1, 0], color='blue', label='Prediction split')
+plt.axvline(dates[int(-1 - VALIDATION_SPLIT * len(x)), 0], color='blue', label='Validation split')
 plt.title(f'BTC Price Prediction (NFA! No Warranties!) - USE_SAVED_MODELS: {USE_SAVED_MODELS}')
 plt.legend(['Actual', 'Validation', 'Validation multi', 'Prediction'], loc='best', fontsize='xx-large')
 plt.xlabel("Time (latest-> oldest)")
