@@ -29,13 +29,13 @@ warnings.filterwarnings("ignore")
 tensorflow.keras.backend.clear_session()
 
 # Configuration
-EPOCHS = 1
+EPOCHS = 10
 DROPOUT = 0.1
 BATCH_SIZE = 512
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
-VALIDATION_SPLIT = .05
-PREDICTION_RANGE = 3
+VALIDATION_SPLIT = .0
+PREDICTION_RANGE = 60
 DYNAMIC_RETRAIN = False
 USE_SAVED_MODELS = False
 SAVE_MODELS = False
@@ -153,11 +153,14 @@ df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
 df_coin = df_coin.drop(columns=['date'])
 df_coin = df_coin.fillna(df_coin.mean())
 df_coin = df_coin.drop(df_coin.index[:1577])
+df_coin.rename(columns={'Unnamed: 0': 'index'}, inplace=True)
+df_coin['index'] = df_coin['index'] - 1577
+df_coin = df_coin.set_index('index')
 
 df_info('df_coin', df_coin)
 
 # Join dataframes
-df = pd.concat([df, df_coin], axis=1, join='inner')
+df = df.join(df_coin)
 
 # Put the date column in the index.
 df = df.set_index("snapped_at")
