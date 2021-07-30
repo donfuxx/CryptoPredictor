@@ -32,7 +32,7 @@ tensorflow.keras.backend.clear_session()
 EPOCHS = 10
 DROPOUT = 0.1
 BATCH_SIZE = 512
-LOOK_BACK = 60
+LOOK_BACK = 100
 UNITS = LOOK_BACK * 1
 VALIDATION_SPLIT = .0
 PREDICTION_RANGE = 60
@@ -82,7 +82,7 @@ def build_model(n_output: int) -> Model:
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(LSTM(units=UNITS, return_sequences=True, input_shape=(x.shape[1], N_FEATURES)))
     new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
-    new_model.add(Dropout(DROPOUT))
+    # new_model.add(Dropout(DROPOUT))
     new_model.add(Bidirectional(LSTM(units=UNITS, activation='tanh', return_sequences=True)))
     # new_model.add(Dropout(DROPOUT))
     # new_model.add(Bidirectional(LSTM(units=UNITS, activation='relu', return_sequences=True)))
@@ -146,10 +146,10 @@ dates = df.iloc[:, [0]].values
 df_info('df', df)
 
 # https://docs.coinmetrics.io/info/metrics
+df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
+                      storage_options=headers)
+df_coin.to_csv('data/btc_metrics.csv')
 df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
-# df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
-#                       storage_options=headers)
-# df_coin.to_csv('data/btc_metrics.csv')
 df_coin = df_coin.drop(columns=['date'])
 df_coin = df_coin.fillna(df_coin.mean())
 df_coin = df_coin.drop(df_coin.index[:1577])
@@ -169,10 +169,10 @@ df = df.set_index("snapped_at")
 open_values = df['price'].to_numpy()
 print(f'open_values: {open_values}')
 
-for m in range(10, 210, 10):
-    ma = moving_average(open_values, m).tolist()
-    print(f'ma_{m}: {ma}')
-    df[f'ma_{m}'] = ma
+# for m in range(10, 210, 10):
+#     ma = moving_average(open_values, m).tolist()
+#     print(f'ma_{m}: {ma}')
+#     df[f'ma_{m}'] = ma
 
 # Fill nan values
 df = df.fillna(df.mean())
