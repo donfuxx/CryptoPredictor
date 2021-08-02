@@ -168,10 +168,10 @@ df = df.set_index("snapped_at")
 open_values = df['price'].to_numpy()
 print(f'open_values: {open_values}')
 
-# for m in range(10, 210, 10):
-#     ma = moving_average(open_values, m).tolist()
-#     print(f'ma_{m}: {ma}')
-#     df[f'ma_{m}'] = ma
+for m in range(10, 210, 10):
+    ma = moving_average(open_values, m).tolist()
+    print(f'ma_{m}: {ma}')
+    df[f'ma_{m}'] = ma
 
 # Fill nan values
 df = df.fillna(df.mean())
