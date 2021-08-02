@@ -34,7 +34,7 @@ DROPOUT = 0.1
 BATCH_SIZE = 256
 LOOK_BACK = 60
 UNITS = LOOK_BACK * 1
-VALIDATION_SPLIT = .0
+VALIDATION_SPLIT = .01
 PREDICTION_RANGE = 60
 DYNAMIC_RETRAIN = False
 USE_SAVED_MODELS = False
@@ -123,8 +123,7 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
 
 
 def get_stats() -> str:
-    return f'loss: {history_multi.history.get("loss")[-1]} \n ' \
-           f'loss multi: {history_multi.history.get("loss")[-1]} \n ' \
+    return f'loss: {history.history.get("loss")[-1]} \n ' \
            f'EPOCHS: {EPOCHS} DYNAMIC_RETRAIN: {DYNAMIC_RETRAIN} \n ' \
            f'UNITS: {UNITS} \n ' \
            f'BATCH_SIZE: {BATCH_SIZE} \n ' \
@@ -187,15 +186,15 @@ scaler = MinMaxScaler(feature_range=(0, 1))
 input_data[:, 0:N_FEATURES] = scaler.fit_transform(input_feature[:, :])
 
 x = []
-y_multi = []
+y = []
 for i in range(len(df) - LOOK_BACK - 1):
     t = []
     for j in range(0, LOOK_BACK):
         t.append(input_data[[(i + j)], :])
     x.append(t)
-    y_multi.append(input_data[i + LOOK_BACK, :])
+    y.append(input_data[i + LOOK_BACK, :])
 
-x, y_multi = np.array(x), np.array(y_multi)
+x, y = np.array(x), np.array(y)
 
 x_test = x[-2 * LOOK_BACK:]
 x = x.reshape(x.shape[0], LOOK_BACK, N_FEATURES)
@@ -204,41 +203,41 @@ print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
 
 if USE_SAVED_MODELS:
-    model_multi = tensorflow.keras.models.load_model("models/model_multi")
+    model = tensorflow.keras.models.load_model("models/model")
 else:
-    model_multi = build_model(N_FEATURES)
+    model = build_model(N_FEATURES)
 
-model_multi, history_multi = fit_model(x, y_multi, model_multi)
+model, history = fit_model(x, y, model)
 
 if SAVE_MODELS:
-    model_multi.save('models/model_multi')
+    model.save('models/model')
 
-y_predict_multi = model_multi.predict(x_test)
+y_predict = model.predict(x_test)
 
 for prediction_steps in range(PREDICTION_RANGE):
-    x_predict_multi = get_updated_x(x[-1], y_predict_multi[-1])
-    y_predict_multi_new = model_multi.predict(x_predict_multi)
+    x_predict = get_updated_x(x[-1], y_predict[-1])
+    y_predict_new = model.predict(x_predict)
 
     # break at extreme values
-    if abs(y_predict_multi_new[0, 1]) > 2:
+    if abs(y_predict_new[0, 1]) > 2:
         break
 
-    print(y_predict_multi_new[0, 1])
-    x = np.append(x, x_predict_multi, axis=0)
+    print(y_predict_new[0, 1])
+    x = np.append(x, x_predict, axis=0)
 
-    y_predict_multi = np.append(y_predict_multi, y_predict_multi_new, axis=0)
+    y_predict = np.append(y_predict, y_predict_new, axis=0)
     # y_predict = np.append(y_predict, [ct}')
 
     # dynamic retrain
     if DYNAMIC_RETRAIN:
-        y_multi = np.append(y_multi, y_predict_multi_new, axis=0)
-        model_multi, history_multi = fit_model(x, y_multi, model_multi, epochs=5, es_patience=4, lr_patience=3)
+        y = np.append(y, y_predict_new, axis=0)
+        model, history = fit_model(x, y, model, epochs=5, es_patience=4, lr_patience=3)
         # y = np.append(y, y_predict_new[, model, epochs=5, es_patience=4, lr_patience=3)
 
 # Inverse scale value
-y_predict_scaled = y_predict_multi.copy()
-y_predict_multi = scaler.inverse_transform(y_predict_multi)
-y_predict_multi = y_predict_multi[:, 0]
+y_predict_scaled = y_predict.copy()
+y_predict = scaler.inverse_transform(y_predict)
+y_predict = y_predict[:, 0]
 
 plot_dates = dates[-2 * LOOK_BACK:]
 
@@ -248,19 +247,19 @@ predict_dates = np.concatenate([plot_dates[:-1], add_dates])
 
 # Plot graph
 plt.figure(figsize=(20, 8))
-plt.plot(dates[-2 * LOOK_BACK:, 0], input_feature[-2 * LOOK_BACK:, 0], color='green')
-plt.plot(predict_dates, y_predict_multi, color='red')
-plt.plot(dates[-2 * LOOK_BACK:, 0], y_predict_multi[:-PREDICTION_RANGE], color='purple')
+plt.plot(dates[-2 * LOOK_BACK:, 0], input_feature[-2 * LOOK_BACK:, 0], color='green', label='Actual')
+plt.plot(predict_dates, y_predict, color='red', label='Prediction')
 plt.axvline(dates[-1, 0], color='blue', label='Prediction split')
-plt.axvline(dates[int(-1 - VALIDATION_SPLIT * len(x)), 0], color='blue', label='Validation split')
+if VALIDATION_SPLIT > 0:
+    plt.axvline(dates[int(-1 - VALIDATION_SPLIT * len(x)), 0], color='purple', label='Validation split')
 plt.title(f'BTC Price Prediction (NFA! No Warranties!) - USE_SAVED_MODELS: {USE_SAVED_MODELS}')
-plt.legend(['Actual', 'Validation', 'Validation multi', 'Prediction'], loc='best', fontsize='xx-large')
+plt.legend(loc='best', fontsize='xx-large')
 plt.xlabel("Time (latest-> oldest)")
 plt.ylabel("Opening Price")
 plt.figtext(0.7, 0.05, get_stats(), ha="center", fontsize=10, bbox={"facecolor": "orange", "alpha": 0.5, "pad": 5})
-plt.annotate(summary(model_multi), (0, 0), (0, -40), xycoords='axes fraction', textcoords='offset points', va='top')
-plt.annotate(model_multi.optimizer, (0, 0), (600, -40), xycoords='axes fraction', textcoords='offset points', va='top')
+plt.annotate(summary(model), (0, 0), (0, -40), xycoords='axes fraction', textcoords='offset points', va='top')
+plt.annotate(model.optimizer, (0, 0), (600, -40), xycoords='axes fraction', textcoords='offset points', va='top')
 
 plt.savefig(
-    f'plots/BTC_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{history_multi.history.get("loss")[-1]}.png')
+    f'plots/BTC_price_{pd.to_datetime(df.index[-1]).date()}_{EPOCHS}_{BATCH_SIZE}_{LOOK_BACK}_{history.history.get("loss")[-1]}.png')
 plt.show()
