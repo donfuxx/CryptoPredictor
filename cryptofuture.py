@@ -32,7 +32,7 @@ tensorflow.keras.backend.clear_session()
 EPOCHS = 1000
 DROPOUT = 0.1
 BATCH_SIZE = 128
-LOOK_BACK = 100
+LOOK_BACK = 50
 UNITS = LOOK_BACK * 1
 VALIDATION_SPLIT = .01
 PREDICTION_RANGE = LOOK_BACK
@@ -124,6 +124,7 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
 
 def get_stats() -> str:
     return f'loss: {history.history.get("loss")[-1]} \n ' \
+           f'val_loss: {history_val.history.get("val_loss")[-1]} \n ' \
            f'EPOCHS: {EPOCHS} DYNAMIC_RETRAIN: {DYNAMIC_RETRAIN} \n ' \
            f'UNITS: {UNITS} \n ' \
            f'BATCH_SIZE: {BATCH_SIZE} \n ' \
@@ -134,9 +135,9 @@ def get_stats() -> str:
            f'PREDICTION_RANGE: {PREDICTION_RANGE} '
 
 
-def predict(model: Model, x: [], x_test: [], y:[]) -> []:
+def predict(model: Model, x: [], x_test: [], y:[], prediction_range: int = PREDICTION_RANGE) -> []:
     y_predict = model.predict(x_test)
-    for prediction_steps in range(PREDICTION_RANGE):
+    for prediction_steps in range(prediction_range):
         x_predict = get_updated_x(x[-1], y_predict[-1])
         y_predict_new = model.predict(x_predict)
 
@@ -241,15 +242,13 @@ model, history = fit_model(x, y, model, split=0)
 if SAVE_MODELS:
     model.save('models/model')
 
-y_predict_val = predict(model_val, x, x_test, y)
+y_predict_val = predict(model_val, x, x_test, y, prediction_range=0)
 y_predict = predict(model, x, x_test, y)
 
 # Inverse scale value
-y_predict_scaled = y_predict.copy()
 y_predict = scaler.inverse_transform(y_predict)
 y_predict = y_predict[:, 0]
 
-y_predict_val_scaled = y_predict_val.copy()
 y_predict_val = scaler.inverse_transform(y_predict_val)
 y_predict_val = y_predict_val[:, 0]
 
@@ -262,7 +261,7 @@ predict_dates = np.concatenate([plot_dates[:-1], add_dates])
 # Plot graph
 plt.figure(figsize=(20, 8))
 plt.plot(dates[-2 * LOOK_BACK:, 0], input_feature[-2 * LOOK_BACK:, 0], color='green', label='Actual')
-plt.plot(predict_dates, y_predict_val, color='orange', label='Validation')
+plt.plot(predict_dates[:-PREDICTION_RANGE], y_predict_val, color='orange', label='Validation')
 plt.plot(predict_dates, y_predict, color='red', label='Prediction')
 plt.axvline(dates[-1, 0], color='blue', label='Prediction split')
 if VALIDATION_SPLIT > 0:
