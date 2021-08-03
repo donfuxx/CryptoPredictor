@@ -31,11 +31,11 @@ tensorflow.keras.backend.clear_session()
 # Configuration
 EPOCHS = 1000
 DROPOUT = 0.1
-BATCH_SIZE = 256
-LOOK_BACK = 60
+BATCH_SIZE = 128
+LOOK_BACK = 100
 UNITS = LOOK_BACK * 1
 VALIDATION_SPLIT = .01
-PREDICTION_RANGE = 60
+PREDICTION_RANGE = LOOK_BACK
 DYNAMIC_RETRAIN = False
 USE_SAVED_MODELS = False
 SAVE_MODELS = False
@@ -134,6 +134,31 @@ def get_stats() -> str:
            f'PREDICTION_RANGE: {PREDICTION_RANGE} '
 
 
+def predict(model: Model, x: [], x_test: [], y:[]) -> []:
+    y_predict = model.predict(x_test)
+    for prediction_steps in range(PREDICTION_RANGE):
+        x_predict = get_updated_x(x[-1], y_predict[-1])
+        y_predict_new = model.predict(x_predict)
+
+        # break at extreme values
+        if abs(y_predict_new[0, 1]) > 2:
+            break
+
+        print(y_predict_new[0, 1])
+        x = np.append(x, x_predict, axis=0)
+
+        y_predict = np.append(y_predict, y_predict_new, axis=0)
+        # y_predict = np.append(y_predict, [ct}')
+
+        # dynamic retrain
+        if DYNAMIC_RETRAIN:
+            y = np.append(y, y_predict_new, axis=0)
+            model, history = fit_model(x, y, model, epochs=5, es_patience=4, lr_patience=3)
+            # y = np.append(y, y_predict_new[, model, epochs=5, es_patience=4, lr_patience=3)
+
+    return y_predict
+
+
 # Download data
 headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0"}
 df = pd.read_csv("https://www.coingecko.com/price_charts/export/1/usd.csv", parse_dates=['snapped_at'],
@@ -203,41 +228,30 @@ print(f'x.shape: {x.shape}')
 print(f'x_test.shape: {x_test.shape}')
 
 if USE_SAVED_MODELS:
+    model_val = tensorflow.keras.models.load_model("models/model_val")
     model = tensorflow.keras.models.load_model("models/model")
 else:
+    model_val = build_model(N_FEATURES)
     model = build_model(N_FEATURES)
 
-model, history = fit_model(x, y, model)
+model_val, history_val = fit_model(x, y, model_val)
+tensorflow.keras.backend.clear_session()
+model, history = fit_model(x, y, model, split=0)
 
 if SAVE_MODELS:
     model.save('models/model')
 
-y_predict = model.predict(x_test)
-
-for prediction_steps in range(PREDICTION_RANGE):
-    x_predict = get_updated_x(x[-1], y_predict[-1])
-    y_predict_new = model.predict(x_predict)
-
-    # break at extreme values
-    if abs(y_predict_new[0, 1]) > 2:
-        break
-
-    print(y_predict_new[0, 1])
-    x = np.append(x, x_predict, axis=0)
-
-    y_predict = np.append(y_predict, y_predict_new, axis=0)
-    # y_predict = np.append(y_predict, [ct}')
-
-    # dynamic retrain
-    if DYNAMIC_RETRAIN:
-        y = np.append(y, y_predict_new, axis=0)
-        model, history = fit_model(x, y, model, epochs=5, es_patience=4, lr_patience=3)
-        # y = np.append(y, y_predict_new[, model, epochs=5, es_patience=4, lr_patience=3)
+y_predict_val = predict(model_val, x, x_test, y)
+y_predict = predict(model, x, x_test, y)
 
 # Inverse scale value
 y_predict_scaled = y_predict.copy()
 y_predict = scaler.inverse_transform(y_predict)
 y_predict = y_predict[:, 0]
+
+y_predict_val_scaled = y_predict_val.copy()
+y_predict_val = scaler.inverse_transform(y_predict_val)
+y_predict_val = y_predict_val[:, 0]
 
 plot_dates = dates[-2 * LOOK_BACK:]
 
@@ -248,6 +262,7 @@ predict_dates = np.concatenate([plot_dates[:-1], add_dates])
 # Plot graph
 plt.figure(figsize=(20, 8))
 plt.plot(dates[-2 * LOOK_BACK:, 0], input_feature[-2 * LOOK_BACK:, 0], color='green', label='Actual')
+plt.plot(predict_dates, y_predict_val, color='orange', label='Validation')
 plt.plot(predict_dates, y_predict, color='red', label='Prediction')
 plt.axvline(dates[-1, 0], color='blue', label='Prediction split')
 if VALIDATION_SPLIT > 0:
