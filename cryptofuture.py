@@ -34,7 +34,7 @@ DROPOUT = 0.1
 BATCH_SIZE = 128
 LOOK_BACK = 100
 UNITS = LOOK_BACK * 1
-VALIDATION_SPLIT = .01
+VALIDATION_SPLIT = .0
 PREDICTION_RANGE = LOOK_BACK
 DYNAMIC_RETRAIN = False
 USE_SAVED_MODELS = False
@@ -124,7 +124,7 @@ def get_updated_x(x_last: [], last_prediction: []) -> []:
 
 def get_stats() -> str:
     return f'loss: {history.history.get("loss")[-1]} \n ' \
-           f'val_loss: {history_val.history.get("val_loss")[-1]} \n ' \
+           f'val_loss: {get_validation_loss()} \n ' \
            f'EPOCHS: {EPOCHS} DYNAMIC_RETRAIN: {DYNAMIC_RETRAIN} \n ' \
            f'UNITS: {UNITS} \n ' \
            f'BATCH_SIZE: {BATCH_SIZE} \n ' \
@@ -160,6 +160,13 @@ def predict(model: Model, x: [], x_test: [], y:[], prediction_range: int = PREDI
     return y_predict
 
 
+def get_validation_loss() -> str:
+    if VALIDATION_SPLIT > 0:
+        return history_val.history.get("val_loss")[-1]
+    else:
+        return ""
+
+
 # Download data
 headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0"}
 df = pd.read_csv("https://www.coingecko.com/price_charts/export/1/usd.csv", parse_dates=['snapped_at'],
@@ -171,9 +178,9 @@ dates = df.iloc[:, [0]].values
 df_info('df', df)
 
 # https://docs.coinmetrics.io/info/metrics
-# df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
-#                       storage_options=headers)
-# df_coin.to_csv('data/btc_metrics.csv')
+df_coin = pd.read_csv('https://coinmetrics.io/newdata/btc.csv', parse_dates=['date'],
+                      storage_options=headers)
+df_coin.to_csv('data/btc_metrics.csv')
 df_coin = pd.read_csv('data/btc_metrics.csv', parse_dates=['date'])
 df_coin = df_coin.drop(columns=['date'])
 df_coin = df_coin.fillna(df_coin.mean())
@@ -232,25 +239,28 @@ if USE_SAVED_MODELS:
     model_val = tensorflow.keras.models.load_model("models/model_val")
     model = tensorflow.keras.models.load_model("models/model")
 else:
-    model_val = build_model(N_FEATURES)
+    if VALIDATION_SPLIT > 0:
+        model_val = build_model(N_FEATURES)
     model = build_model(N_FEATURES)
 
-model_val, history_val = fit_model(x, y, model_val)
-tensorflow.keras.backend.clear_session()
+if VALIDATION_SPLIT > 0:
+    model_val, history_val = fit_model(x, y, model_val)
+    tensorflow.keras.backend.clear_session()
+
 model, history = fit_model(x, y, model, split=0)
 
 if SAVE_MODELS:
     model.save('models/model')
 
-y_predict_val = predict(model_val, x, x_test, y, prediction_range=0)
-y_predict = predict(model, x, x_test, y)
 
-# Inverse scale value
+y_predict = predict(model, x, x_test, y)
 y_predict = scaler.inverse_transform(y_predict)
 y_predict = y_predict[:, 0]
 
-y_predict_val = scaler.inverse_transform(y_predict_val)
-y_predict_val = y_predict_val[:, 0]
+if VALIDATION_SPLIT > 0:
+    y_predict_val = predict(model_val, x, x_test, y, prediction_range=0)
+    y_predict_val = scaler.inverse_transform(y_predict_val)
+    y_predict_val = y_predict_val[:, 0]
 
 plot_dates = dates[-2 * LOOK_BACK:]
 
@@ -261,11 +271,11 @@ predict_dates = np.concatenate([plot_dates[:-1], add_dates])
 # Plot graph
 plt.figure(figsize=(20, 8))
 plt.plot(dates[-2 * LOOK_BACK:, 0], input_feature[-2 * LOOK_BACK:, 0], color='green', label='Actual')
-plt.plot(predict_dates[:-PREDICTION_RANGE], y_predict_val, color='orange', label='Validation')
+if VALIDATION_SPLIT > 0:
+    plt.plot(predict_dates[:-PREDICTION_RANGE], y_predict_val, color='orange', label='Validation')
+    plt.axvline(dates[int(-1 - VALIDATION_SPLIT * len(x)), 0], color='purple', label='Validation split')
 plt.plot(predict_dates, y_predict, color='red', label='Prediction')
 plt.axvline(dates[-1, 0], color='blue', label='Prediction split')
-if VALIDATION_SPLIT > 0:
-    plt.axvline(dates[int(-1 - VALIDATION_SPLIT * len(x)), 0], color='purple', label='Validation split')
 plt.title(f'BTC Price Prediction (NFA! No Warranties!) - USE_SAVED_MODELS: {USE_SAVED_MODELS}')
 plt.legend(loc='best', fontsize='xx-large')
 plt.xlabel("Time (latest-> oldest)")
